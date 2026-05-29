@@ -19,6 +19,7 @@ const filterPeriodik = document.getElementById('filterPeriodik');
 // State
 let rawDataCache = [];
 let daftarSiswaCache = [];
+let pengaturanCache = { tglMulai: '', tglSelesai: '', libur: [] };
 let currentTab = 'dashboard';
 
 // Utilities
@@ -138,6 +139,7 @@ async function fetchData(namaGuru) {
         if (result.status === 'success') {
             rawDataCache = result.data || [];
             daftarSiswaCache = result.siswa || [];
+            pengaturanCache = result.pengaturan || { tglMulai: '', tglSelesai: '', libur: [] };
             renderCurrentTab();
         } else {
             showToast(result.message, "error");
@@ -268,13 +270,27 @@ function renderHarian() {
     container.innerHTML = html;
 }
 
+function isWorkingDay(dateStr) {
+    if (!pengaturanCache.tglMulai) return true;
+    let d = parseDate(dateStr); d.setHours(0,0,0,0);
+    let start = parseDate(pengaturanCache.tglMulai); start.setHours(0,0,0,0);
+    let end = pengaturanCache.tglSelesai ? parseDate(pengaturanCache.tglSelesai) : new Date(2100,0,1); end.setHours(23,59,59,999);
+    let now = new Date(); now.setHours(23,59,59,999);
+    
+    if (d < start || d > end || d > now) return false;
+    let day = d.getDay();
+    if (day === 0 || day === 6) return false;
+    if (pengaturanCache.libur.includes(dateStr)) return false;
+    return true;
+}
+
 function renderPeriodik() {
     const waktu = filterPeriodik.value;
     const keyword = searchPeriodik.value;
     const data = getFilteredData(waktu, keyword);
     const container = document.getElementById('tablePeriodik');
 
-    if (!data.length) {
+    if (!data.length && !pengaturanCache.tglMulai) {
         container.innerHTML = `<div class="text-center text-slate-400 text-sm py-10 font-medium">Tidak ada data rekap.</div>`;
         return;
     }
@@ -286,12 +302,34 @@ function renderPeriodik() {
         let stats = {};
         daftarSiswaCache.forEach(s => stats[s.nisn] = { nama: s.nama, H: 0, I: 0, S: 0, A: 0 });
         
+        // Hitung total hari kerja yang valid sejak tglMulai s.d Hari Ini
+        let workingDatesCount = 0;
+        if (pengaturanCache.tglMulai) {
+            let startD = parseDate(pengaturanCache.tglMulai);
+            let endD = pengaturanCache.tglSelesai ? parseDate(pengaturanCache.tglSelesai) : new Date();
+            let nowD = new Date();
+            if (endD > nowD) endD = nowD;
+            
+            for(let curr = new Date(startD); curr <= endD; curr.setDate(curr.getDate()+1)) {
+                let currStr = `${curr.getDate().toString().padStart(2,'0')}/${(curr.getMonth()+1).toString().padStart(2,'0')}/${curr.getFullYear()}`;
+                if (isWorkingDay(currStr)) workingDatesCount++;
+            }
+        }
+
         data.forEach(item => {
             if (stats[item.nisn]) {
                 if (item.status === 'Hadir') stats[item.nisn].H++;
                 else if (item.status === 'Izin') stats[item.nisn].I++;
                 else if (item.status === 'Sakit') stats[item.nisn].S++;
-                else if (item.status === 'Belum Absen' || item.status === 'Alpha') stats[item.nisn].A++;
+            }
+        });
+
+        // Set Alpha
+        Object.values(stats).forEach(s => {
+            if (pengaturanCache.tglMulai) {
+                s.A = Math.max(0, workingDatesCount - (s.H + s.I + s.S));
+            } else {
+                s.A = data.filter(d => d.nisn === s.nisn && d.status === 'Belum Absen').length;
             }
         });
 
@@ -365,6 +403,15 @@ function renderPeriodik() {
             }
         });
 
+        // Terapkan "A" pada hari kerja yang belum absen
+        dates.forEach(d => {
+            if (isWorkingDay(d)) {
+                Object.values(matrix).forEach(m => {
+                    if (m.records[d] === '-') m.records[d] = 'A';
+                });
+            }
+        });
+
         let matrixRows = Object.values(matrix);
         if(keyword) {
             const kw = keyword.toLowerCase();
@@ -387,7 +434,8 @@ function renderPeriodik() {
         html += `
             <th class="p-2 font-semibold text-center text-emerald-600 bg-slate-100 border-l border-slate-200">H</th>
             <th class="p-2 font-semibold text-center text-rose-600 bg-slate-100">S</th>
-            <th class="p-2 font-semibold text-center text-amber-600 bg-slate-100 border-r border-slate-200">I</th>
+            <th class="p-2 font-semibold text-center text-amber-600 bg-slate-100">I</th>
+            <th class="p-2 font-semibold text-center text-slate-500 bg-slate-100 border-r border-slate-200">A</th>
         </tr></thead><tbody class="text-xs divide-y divide-slate-100">`;
 
         matrixRows.forEach((row, index) => {
@@ -395,18 +443,19 @@ function renderPeriodik() {
                 <td class="p-2 text-center text-slate-400 sticky left-0 bg-white z-10 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)]">${index + 1}</td>
                 <td class="p-2 font-semibold text-slate-800 sticky left-[30px] bg-white z-10 border-r border-slate-100 shadow-[2px_0_5px_rgba(0,0,0,0.02)] truncate max-w-[120px]" title="${row.nama}">${row.nama}</td>`;
             
-            let totalH = 0, totalS = 0, totalI = 0;
+            let totalH = 0, totalS = 0, totalI = 0, totalA = 0;
             dates.forEach(d => {
                 let stat = row.records[d];
-                if (stat === 'H') totalH++; else if (stat === 'S') totalS++; else if (stat === 'I') totalI++;
-                let colorClass = stat === 'H' ? 'text-emerald-600 bg-emerald-50' : stat === 'I' ? 'text-amber-600 bg-amber-50' : stat === 'S' ? 'text-rose-600 bg-rose-50' : 'text-slate-300';
+                if (stat === 'H') totalH++; else if (stat === 'S') totalS++; else if (stat === 'I') totalI++; else if (stat === 'A') totalA++;
+                let colorClass = stat === 'H' ? 'text-emerald-600 bg-emerald-50' : stat === 'I' ? 'text-amber-600 bg-amber-50' : stat === 'S' ? 'text-rose-600 bg-rose-50' : stat === 'A' ? 'text-slate-500 bg-slate-100' : 'text-slate-300';
                 html += `<td class="p-1 text-center font-bold border-l border-slate-100 ${colorClass}" title="${d}: ${stat}">${stat}</td>`;
             });
             
             html += `
                 <td class="p-1 text-center font-bold text-emerald-600 bg-emerald-50/50 border-l border-slate-200">${totalH}</td>
                 <td class="p-1 text-center font-bold text-rose-600 bg-rose-50/50">${totalS}</td>
-                <td class="p-1 text-center font-bold text-amber-600 bg-amber-50/50 border-r border-slate-200">${totalI}</td>
+                <td class="p-1 text-center font-bold text-amber-600 bg-amber-50/50">${totalI}</td>
+                <td class="p-1 text-center font-bold text-slate-500 bg-slate-50/50 border-r border-slate-200">${totalA}</td>
             </tr>`;
         });
         html += `</tbody></table></div>`;

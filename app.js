@@ -1,124 +1,115 @@
-// URL WEB APP GOOGLE APPS SCRIPT ANDA (GANTI SETELAH DEPLOY)
 const GOOGLE_SCRIPT_URL = "https://script.google.com/macros/s/AKfycbyZYfk70rs-WOOHQeq4RR93VtdzcpvTIk4aMv2rKUgFqGJ6RiOReb2QNnMbNZUp5fkLwg/exec";
 
 // DOM Elements
 const sectionLogin = document.getElementById('loginSection');
-const sectionAbsen = document.getElementById('absenSection');
-const sectionSuccess = document.getElementById('successSection');
-
+const mainApp = document.getElementById('mainApp');
 const inputNisn = document.getElementById('inputNisn');
 const inputTglLahir = document.getElementById('inputTglLahir');
 const btnLanjut = document.getElementById('btnLanjut');
-const userProfile = document.getElementById('userProfile');
-const navTabs = document.getElementById('navTabs');
-const displayNisn = document.getElementById('displayNisn');
 
-const video = document.getElementById('cameraFeed');
-const canvas = document.getElementById('photoCanvas');
-const photoPreview = document.getElementById('photoPreview');
+const userProfile = document.getElementById('userProfile');
+const displayNisn = document.getElementById('displayNisn');
+const displayNamaLengkap = document.getElementById('displayNamaLengkap');
+const btnProfileMenu = document.getElementById('btnProfileMenu');
+const dropdownMenu = document.getElementById('dropdownMenu');
+const loadingOverlay = document.getElementById('loadingOverlay');
+
+// Camera & Absen Elements
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const photoPreview = document.getElementById('photo');
 const btnCapture = document.getElementById('btnCapture');
 const btnRetake = document.getElementById('btnRetake');
 const btnSubmit = document.getElementById('btnSubmit');
-const locationStatus = document.getElementById('locationStatus');
-const faceGuide = document.querySelector('.face-guide');
-const loadingOverlay = document.getElementById('loadingOverlay');
+const cameraStatus = document.getElementById('cameraStatus');
+const locDot = document.getElementById('locDot');
+const locText = document.getElementById('locText');
+
+const inputStatus = document.getElementById('inputStatus');
+const inputAlasan = document.getElementById('inputAlasan');
+const boxAlasan = document.getElementById('boxAlasan');
+
+// Rekap Elements
+const bulanRekap = document.getElementById('bulanRekap');
+const rekapContainer = document.getElementById('rekapContainer');
+const btnExportPdf = document.getElementById('btnExportPdf');
+
+// Dashboard Elements
+const dashNamaSiswa = document.getElementById('dashNamaSiswa');
+const dashStatusHariIni = document.getElementById('dashStatusHariIni');
+const dashBulanFilter = document.getElementById('dashBulanFilter');
+const dashH = document.getElementById('dashH');
+const dashS = document.getElementById('dashS');
+const dashI = document.getElementById('dashI');
+const dashA = document.getElementById('dashA');
 
 // State
-let userData = {
-    nisn: '',
-    lat: null,
-    lng: null,
-    photoBase64: null
+let userData = { nisn: '', nama: '', lat: null, lng: null, photoBase64: null };
+let stream = null;
+let currentTab = 'dashboard';
+let rekapDataCache = [];
+let pengaturanCache = { tglMulai: '', tglSelesai: '', libur: [] };
+
+// Utilities
+const parseDate = (str) => {
+    const parts = str.split('/');
+    if (parts.length !== 3) return new Date();
+    return new Date(parts[2], parts[1] - 1, parts[0]);
+};
+const getTodayStr = () => {
+    const now = new Date();
+    return `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}/${now.getFullYear()}`;
 };
 
-let stream = null;
-
-// On Load Check LocalStorage
+// Init
 window.onload = () => {
     const savedNisn = localStorage.getItem('nisn_pkl');
     const savedNama = localStorage.getItem('nama_pkl');
-
     if (savedNisn) {
-        userData.nisn = savedNisn;
-        displayNisn.innerText = savedNama || savedNisn;
-        userProfile.style.display = 'flex';
-        navTabs.style.display = 'flex';
-
-        sectionLogin.style.display = 'none';
-        sectionAbsen.style.display = 'flex';
-
-        initCamera();
-        getLocation();
+        setLoggedInState(savedNisn, savedNama || savedNisn);
     }
 };
 
-// --- Logic Status & Alasan ---
-const radioStatus = document.querySelectorAll('input[name="statusAbsen"]');
-const alasanContainer = document.getElementById('alasanContainer');
-const inputAlasan = document.getElementById('inputAlasan');
+function setLoggedInState(nisn, nama) {
+    userData.nisn = nisn;
+    userData.nama = nama;
+    displayNisn.innerText = nisn;
+    displayNamaLengkap.innerText = nama;
+    dashNamaSiswa.innerText = nama;
+    
+    userProfile.style.display = 'flex';
+    sectionLogin.style.display = 'none';
+    mainApp.style.display = 'flex';
+    
+    switchTab('dashboard');
+    fetchRekap(nisn);
+}
 
-radioStatus.forEach(radio => {
-    radio.addEventListener('change', (e) => {
-        if (e.target.value === 'Sakit' || e.target.value === 'Izin') {
-            alasanContainer.style.display = 'block';
-        } else {
-            alasanContainer.style.display = 'none';
-            inputAlasan.value = '';
-        }
-    });
-});
-
-// --- Flow 1: Login / Masukkan NISN ---
+// Login Process
 btnLanjut.addEventListener('click', async () => {
     const nisn = inputNisn.value.trim();
-    const tglLahirRaw = inputTglLahir.value; // format HTML date YYYY-MM-DD
+    const tglLahirRaw = inputTglLahir.value;
+    if (!nisn || !tglLahirRaw) return showToast("Mohon masukkan NISN dan Tanggal Lahir", "error");
 
-    if (!nisn || !tglLahirRaw) {
-        showToast("Mohon masukkan NISN dan Tanggal Lahir", "error");
-        return;
-    }
-
-    // Format YYYY-MM-DD menjadi DD/MM/YYYY
     const [year, month, day] = tglLahirRaw.split('-');
     const tglLahirFormatted = `${day}/${month}/${year}`;
 
-    // Tampilkan loading di tombol
     const originalText = btnLanjut.innerHTML;
     btnLanjut.innerHTML = `<div class="spinner w-5 h-5 border-2 border-white/20 border-t-white rounded-full"></div> Memverifikasi...`;
     btnLanjut.disabled = true;
 
     try {
-        const payload = {
-            action: "login",
-            nisn: nisn,
-            tglLahir: tglLahirFormatted
-        };
-
+        const payload = { action: "login", nisn: nisn, tglLahir: tglLahirFormatted };
         const res = await fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+            method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' }
         });
-
         const result = await res.json();
-
+        
         if (result.status === 'success') {
-            userData.nisn = nisn;
-            displayNisn.innerText = result.nama || nisn;
-            userProfile.style.display = 'flex';
-            navTabs.style.display = 'flex';
-            
-            // Save to cache
             localStorage.setItem('nisn_pkl', nisn);
             if (result.nama) localStorage.setItem('nama_pkl', result.nama);
-
-            // Pindah ke halaman absen
-            sectionLogin.style.display = 'none';
-            sectionAbsen.style.display = 'flex';
-
-            // Mulai GPS dan Kamera
-            initCamera();
-            getLocation();
+            showToast("Login Berhasil!");
+            setLoggedInState(nisn, result.nama || nisn);
         } else {
             showToast(result.message, "error");
         }
@@ -130,316 +121,146 @@ btnLanjut.addEventListener('click', async () => {
     }
 });
 
-// --- Logic Logout, Navigasi, & Dropdown ---
-const btnProfileMenu = document.getElementById('btnProfileMenu');
-const dropdownMenu = document.getElementById('dropdownMenu');
-
-if (btnProfileMenu && dropdownMenu) {
-    btnProfileMenu.addEventListener('click', (e) => {
-        e.stopPropagation();
-        dropdownMenu.classList.toggle('hidden');
-    });
-
-    document.addEventListener('click', (e) => {
-        if (!btnProfileMenu.contains(e.target) && !dropdownMenu.contains(e.target)) {
-            dropdownMenu.classList.add('hidden');
-        }
-    });
-}
-
+// Logout & Menu
 document.getElementById('btnLogout').addEventListener('click', () => {
     localStorage.removeItem('nisn_pkl');
     localStorage.removeItem('nama_pkl');
     window.location.reload();
 });
 
-const sectionRekap = document.getElementById('rekapSection');
-const btnNavAbsen = document.getElementById('btnNavAbsen');
-const btnNavRekap = document.getElementById('btnNavRekap');
-
-const ACTIVE_TAB = ['text-white', 'bg-primary', 'font-semibold', 'shadow-sm'];
-const INACTIVE_TAB = ['text-slate-500', 'font-medium', 'hover:text-slate-800', 'bg-transparent', 'shadow-none'];
-
-function setTabActive(activeBtn, inactiveBtn) {
-    activeBtn.classList.remove(...INACTIVE_TAB);
-    activeBtn.classList.add(...ACTIVE_TAB);
-    
-    inactiveBtn.classList.remove(...ACTIVE_TAB);
-    inactiveBtn.classList.add(...INACTIVE_TAB);
+if (btnProfileMenu && dropdownMenu) {
+    btnProfileMenu.addEventListener('click', (e) => { e.stopPropagation(); dropdownMenu.classList.toggle('hidden'); });
+    document.addEventListener('click', (e) => {
+        if (!btnProfileMenu.contains(e.target) && !dropdownMenu.contains(e.target)) dropdownMenu.classList.add('hidden');
+    });
 }
 
-btnNavAbsen.addEventListener('click', () => {
-    sectionRekap.style.display = 'none';
-    sectionSuccess.style.display = 'none';
-    sectionAbsen.style.display = 'flex';
-    setTabActive(btnNavAbsen, btnNavRekap);
-    
-    // Restart camera if it was stopped
-    if (!stream || !stream.active) {
-        initCamera();
-    }
+// Tabs Logic
+document.querySelectorAll('.tab-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        e.currentTarget.classList.add('active');
+        const nextTab = e.currentTarget.getAttribute('data-target');
+        
+        if (currentTab === 'absen' && nextTab !== 'absen') stopCamera();
+        if (nextTab === 'absen' && currentTab !== 'absen') { initCamera(); getLocation(); }
+        
+        currentTab = nextTab;
+        switchTab(currentTab);
+        if(currentTab === 'dashboard') renderDashboard();
+        else if(currentTab === 'rekap') renderRekap();
+    });
 });
 
-btnNavRekap.addEventListener('click', () => {
-    sectionAbsen.style.display = 'none';
-    sectionSuccess.style.display = 'none';
-    sectionRekap.style.display = 'flex';
-    setTabActive(btnNavRekap, btnNavAbsen);
-    loadRekap();
-});
-
-// --- Flow 2: Kamera (Ambil Foto) ---
-async function initCamera() {
-    try {
-        // Minta akses kamera depan (user)
-        stream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user' },
-            audio: false
-        });
-        video.srcObject = stream;
-    } catch (err) {
-        console.error("Error akses kamera:", err);
-        showToast("Gagal mengakses kamera. Pastikan izin diberikan.", "error");
-        locationStatus.innerText = "Kamera diblokir!";
-    }
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-content').forEach(c => { c.classList.add('hidden'); c.classList.remove('flex'); });
+    const target = document.getElementById('tab-' + tabId);
+    if(target) { target.classList.remove('hidden'); target.classList.add('flex'); }
 }
 
-btnCapture.addEventListener('click', () => {
-    // KOMPRESI 1: Perkecil resolusi (Max Width 480px)
-    const MAX_WIDTH = 480;
-    let width = video.videoWidth;
-    let height = video.videoHeight;
-
-    if (width > MAX_WIDTH) {
-        const ratio = MAX_WIDTH / width;
-        width = MAX_WIDTH;
-        height = height * ratio;
-    }
-
-    // Set ukuran canvas dengan resolusi yang sudah diperkecil
-    canvas.width = width;
-    canvas.height = height;
-
-    const context = canvas.getContext('2d');
-    context.drawImage(video, 0, 0, width, height);
-
-    // KOMPRESI 2: Turunkan kualitas JPEG menjadi 30% (0.3) agar Base64 sangat kecil
-    userData.photoBase64 = canvas.toDataURL('image/jpeg', 0.3);
-
-    // Ubah Tampilan UI
-    video.style.display = 'none';
-    faceGuide.style.display = 'none';
-    photoPreview.src = userData.photoBase64;
-    photoPreview.style.display = 'block';
-
-    btnCapture.style.display = 'none';
-    btnRetake.style.display = 'flex';
-    btnSubmit.style.display = 'flex';
-});
-
-btnRetake.addEventListener('click', () => {
-    userData.photoBase64 = null;
-
-    photoPreview.style.display = 'none';
-    video.style.display = 'block';
-    faceGuide.style.display = 'block';
-
-    btnRetake.style.display = 'none';
-    btnSubmit.style.display = 'none';
-    btnCapture.style.display = 'flex';
-});
-
-// --- Flow 3: Geolocation (GPS) ---
-function getLocation() {
-    if (navigator.geolocation) {
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                userData.lat = position.coords.latitude;
-                userData.lng = position.coords.longitude;
-                locationStatus.innerHTML = `<span class="text-emerald-600 font-bold text-xs uppercase tracking-wider">Akurat (${position.coords.accuracy.toFixed(0)}m)</span><br><span class="text-slate-600 text-xs font-medium">${userData.lat.toFixed(5)}, ${userData.lng.toFixed(5)}</span>`;
-            },
-            (error) => {
-                let msg = "Gagal mengambil lokasi.";
-                if (error.code == 1) msg = "Akses GPS ditolak.";
-                locationStatus.innerHTML = `<span class="text-rose-600 font-bold text-xs uppercase tracking-wider">${msg}</span>`;
-                showToast(msg, "error");
-            },
-            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
-        );
-    } else {
-        locationStatus.innerText = "Browser tidak mendukung GPS.";
-    }
-}
-
-// --- Flow 4: Submit Data ke Google Apps Script ---
-btnSubmit.addEventListener('click', async () => {
-    if (!userData.lat || !userData.lng) {
-        showToast("Tunggu! Lokasi GPS belum didapatkan.", "error");
-        return;
-    }
-
-    if (GOOGLE_SCRIPT_URL.includes("YOUR_SCRIPT_ID_HERE")) {
-        showToast("DEVELOPER: Masukkan URL Web App Anda di app.js", "error");
-        return;
-    }
-
-    const selectedStatus = document.querySelector('input[name="statusAbsen"]:checked').value;
-    const alasan = inputAlasan.value.trim();
-
-    if ((selectedStatus === 'Sakit' || selectedStatus === 'Izin') && !alasan) {
-        showToast("Mohon tuliskan alasan Anda!", "error");
-        return;
-    }
-
-    // Tampilkan Loading
-    loadingOverlay.style.display = 'flex';
-
-    const payload = {
-        nisn: userData.nisn,
-        lat: userData.lat,
-        lng: userData.lng,
-        photoBase64: userData.photoBase64,
-        status: selectedStatus,
-        alasan: alasan
-    };
-
+// Fetch Data (Rekap & Dashboard)
+async function fetchRekap(nisn) {
     try {
-        // Harus menggunakan Content-Type text/plain agar tidak terkena CORS Preflight (OPTIONS) di GAS
-        const response = await fetch(GOOGLE_SCRIPT_URL, {
-            method: 'POST',
-            body: JSON.stringify(payload),
-            headers: {
-                'Content-Type': 'text/plain;charset=utf-8',
-            }
-        });
-
-        const result = await response.json();
-
-        if (result.status === "success") {
-            // Matikan stream kamera
-            if (stream) {
-                stream.getTracks().forEach(track => track.stop());
-            }
-
-            // Pindah halaman
-            sectionAbsen.style.display = 'none';
-            sectionSuccess.style.display = 'flex';
-
-            // Tampilkan waktu berhasil
-            const now = new Date();
-            document.getElementById('timeStampDisplay').innerText =
-                `${now.toLocaleDateString('id-ID')} - ${now.toLocaleTimeString('id-ID')}`;
-
-            showToast("Berhasil Absen!");
-        } else {
-            throw new Error(result.message);
-        }
-
-    } catch (error) {
-        console.error("Error submit:", error);
-        showToast("Gagal mengirim data. Cek koneksi internet.", "error");
-    } finally {
-        loadingOverlay.style.display = 'none';
-    }
-});
-
-// Kembali ke Awal
-document.getElementById('btnKembali').addEventListener('click', () => {
-    sectionSuccess.style.display = 'none';
-    sectionAbsen.style.display = 'flex';
-
-    // Reset form & ui
-    inputAlasan.value = '';
-    document.querySelector('input[name="statusAbsen"][value="Hadir"]').checked = true;
-    alasanContainer.style.display = 'none';
-    btnRetake.click();
-});
-
-// --- Utility: Load Rekap Bulanan ---
-let allRekapData = [];
-async function loadRekap() {
-    const container = document.getElementById('rekapContainer');
-    const selectBulan = document.getElementById('bulanRekap');
-
-    container.innerHTML = `<div class="text-center text-slate-400 text-sm py-10 flex flex-col items-center gap-2"><div class="spinner w-6 h-6 border-2 border-white/10 border-t-primary rounded-full"></div>Memuat data...</div>`;
-
-    try {
-        const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getRekap&nisn=${userData.nisn}`);
+        const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getRekap&nisn=${nisn}&bulan=all`);
         const result = await res.json();
-
         if (result.status === 'success') {
-            allRekapData = result.data;
-            populateBulanDropdown(allRekapData, selectBulan);
-            renderRekap(allRekapData);
-
-            selectBulan.onchange = (e) => {
-                if (e.target.value === 'all') {
-                    renderRekap(allRekapData);
-                } else {
-                    const filtered = allRekapData.filter(item => {
-                        const parts = item.tanggal.split('/');
-                        // Support format MM/DD/YYYY atau DD/MM/YYYY dari Google Sheet (sesuaikan format locale browser)
-                        // Biasanya Date local akan ambil angka bulan, mari kita pakai regex atau index
-                        const isMonth = parts[0].length > 2 ? false : true;
-                        // Simplified approach: just check if month-year matches substring
-                        const [, month, year] = parts;
-                        return `${month}-${year}` === e.target.value || `${parts[1]}-${parts[2]}` === e.target.value || `${parts[0]}-${parts[2]}` === e.target.value; // very loose matching depending on spreadsheet locale
-                    });
-                    renderRekap(filtered);
-                }
-            };
-        } else {
-            container.innerHTML = `<div class="text-center text-rose-400 py-4">Gagal memuat rekap.</div>`;
+            rekapDataCache = result.data || [];
+            pengaturanCache = result.pengaturan || { tglMulai: '', tglSelesai: '', libur: [] };
+            renderDashboard();
+            renderRekap();
         }
-    } catch (e) {
-        container.innerHTML = `<div class="text-center text-rose-400 py-4">Error koneksi.</div>`;
+    } catch (e) { console.error("Gagal load rekap", e); }
+}
+
+function isWorkingDay(dateStr) {
+    if (!pengaturanCache.tglMulai) return true;
+    let d = parseDate(dateStr); d.setHours(0,0,0,0);
+    let start = parseDate(pengaturanCache.tglMulai); start.setHours(0,0,0,0);
+    let end = pengaturanCache.tglSelesai ? parseDate(pengaturanCache.tglSelesai) : new Date(2100,0,1); end.setHours(23,59,59,999);
+    let now = new Date(); now.setHours(23,59,59,999);
+    
+    if (d < start || d > end || d > now) return false;
+    let day = d.getDay();
+    if (day === 0 || day === 6) return false;
+    if (pengaturanCache.libur.includes(dateStr)) return false;
+    return true;
+}
+
+function renderDashboard() {
+    const todayStr = getTodayStr();
+    const todayRecord = rekapDataCache.find(r => r.tanggal === todayStr);
+    
+    if (todayRecord) {
+        dashStatusHariIni.innerText = `${todayRecord.status} pukul ${todayRecord.waktu}`;
+        dashStatusHariIni.className = `font-bold text-sm ${todayRecord.status === 'Hadir' ? 'text-emerald-300' : 'text-amber-300'}`;
+    } else {
+        dashStatusHariIni.innerText = "Belum Absen";
+        dashStatusHariIni.className = "font-bold text-sm text-slate-300";
     }
-}
 
-function populateBulanDropdown(data, selectElement) {
-    const uniqueMonths = new Set();
-    data.forEach(item => {
-        const parts = item.tanggal.split('/');
-        if (parts.length === 3) {
-            // Assume format id-ID -> DD/MM/YYYY
-            uniqueMonths.add(`${parts[1]}-${parts[2]}`);
+    const filter = dashBulanFilter.value;
+    let H=0, S=0, I=0, A=0;
+    
+    let workingDatesCount = 0;
+    if (pengaturanCache.tglMulai) {
+        let startD = parseDate(pengaturanCache.tglMulai);
+        let endD = pengaturanCache.tglSelesai ? parseDate(pengaturanCache.tglSelesai) : new Date();
+        let nowD = new Date();
+        if (endD > nowD) endD = nowD;
+        
+        for(let curr = new Date(startD); curr <= endD; curr.setDate(curr.getDate()+1)) {
+            if (filter !== 'all' && (curr.getMonth() + 1).toString() !== filter) continue;
+            let currStr = `${curr.getDate().toString().padStart(2,'0')}/${(curr.getMonth()+1).toString().padStart(2,'0')}/${curr.getFullYear()}`;
+            if (isWorkingDay(currStr)) workingDatesCount++;
+        }
+    }
+    
+    rekapDataCache.forEach(item => {
+        const d = parseDate(item.tanggal);
+        if (filter === 'all' || (d.getMonth() + 1) == filter) {
+            if (item.status === 'Hadir') H++;
+            else if (item.status === 'Sakit') S++;
+            else if (item.status === 'Izin') I++;
         }
     });
 
-    let html = '<option value="all">Semua Bulan</option>';
-    uniqueMonths.forEach(m => {
-        const [month, year] = m.split('-');
-        const monthName = new Date(year, month - 1).toLocaleString('id-ID', { month: 'long' });
-        html += `<option value="${m}">${monthName} ${year}</option>`;
-    });
-    selectElement.innerHTML = html;
-}
+    if (pengaturanCache.tglMulai) {
+        A = Math.max(0, workingDatesCount - (H + S + I));
+    }
 
-function renderRekap(data) {
-    const container = document.getElementById('rekapContainer');
-    if (data.length === 0) {
-        container.innerHTML = `<div class="text-center text-slate-400 py-10">Belum ada riwayat absen.</div>`;
+    dashH.innerText = H; dashS.innerText = S; dashI.innerText = I; dashA.innerText = A;
+}
+dashBulanFilter.addEventListener('change', renderDashboard);
+
+function renderRekap() {
+    const filter = bulanRekap.value;
+    let filtered = rekapDataCache;
+    if (filter !== 'all') {
+        filtered = rekapDataCache.filter(item => {
+            const d = parseDate(item.tanggal);
+            return (d.getMonth() + 1) == filter;
+        });
+    }
+
+    if (!filtered.length) {
+        rekapContainer.innerHTML = `<div class="text-center text-slate-400 text-sm py-10 font-medium bg-white rounded-xl border border-slate-200">Tidak ada riwayat.</div>`;
         return;
     }
 
     let html = '';
-    data.forEach(item => {
+    filtered.forEach(item => {
         let badgeColor = item.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-            item.status === 'Izin' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                'bg-rose-50 text-rose-700 border-rose-200';
-                
-        // Ubah URL Google Drive standar (Viewer) menjadi URL Thumbnail agar bisa tampil di tag <img>
+            item.status === 'Izin' ? 'bg-amber-50 text-amber-700 border-amber-200' : 'bg-rose-50 text-rose-700 border-rose-200';
+            
         let fotoUrl = item.foto;
         if (fotoUrl && fotoUrl.includes('drive.google.com/file/d/')) {
             const match = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (match && match[1]) {
-                fotoUrl = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w120`;
-            }
+            if (match && match[1]) fotoUrl = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w120`;
         }
 
         html += `
         <div class="bg-white border border-slate-200 shadow-sm rounded-xl p-3 flex gap-3 items-center">
-            ${fotoUrl ? `<img src="${fotoUrl}" class="w-12 h-12 rounded-lg object-cover bg-slate-100 border border-slate-200" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ3NTU2OSIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6Ii8+PC9zdmc+'" />` : '<div class="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center"><i class="ph ph-image text-slate-400"></i></div>'}
+            ${fotoUrl ? `<img src="${fotoUrl}" class="w-12 h-12 rounded-lg object-cover bg-slate-100 border border-slate-200" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ3NTU2OSIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6Ii8+PC9zdmc+'" />` : '<div class="w-12 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0"><i class="ph ph-image text-slate-300"></i></div>'}
             <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-start mb-0.5">
                     <span class="text-slate-800 font-semibold text-sm truncate">${item.tanggal}</span>
@@ -447,31 +268,103 @@ function renderRekap(data) {
                 </div>
                 <div class="text-slate-500 text-xs font-medium truncate">${item.waktu} ${item.alasan ? '• ' + item.alasan : ''}</div>
             </div>
-        </div>
-        `;
+        </div>`;
     });
-    container.innerHTML = html;
+    rekapContainer.innerHTML = html;
 }
+bulanRekap.addEventListener('change', renderRekap);
+btnExportPdf.addEventListener('click', () => window.print());
 
-// Ekspor PDF (Print)
-document.getElementById('btnExportPdf').addEventListener('click', () => {
-    window.print();
+// Absen Logic (Camera, GPS, Form)
+inputStatus.addEventListener('change', (e) => {
+    if (e.target.value === 'Sakit' || e.target.value === 'Izin') boxAlasan.classList.remove('hidden');
+    else { boxAlasan.classList.add('hidden'); inputAlasan.value = ''; }
 });
 
-// --- Utility: Toast Notification ---
-function showToast(message, type = "success") {
-    const toast = document.getElementById('toast');
-    toast.innerText = message;
-
-    if (type === "error") {
-        toast.classList.add("error");
-    } else {
-        toast.classList.remove("error");
+async function initCamera() {
+    try {
+        cameraStatus.style.display = 'flex';
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+        video.srcObject = stream;
+        video.onloadedmetadata = () => { cameraStatus.style.display = 'none'; btnCapture.disabled = false; btnCapture.classList.remove('opacity-50'); };
+    } catch (err) {
+        cameraStatus.innerHTML = `<i class="ph ph-camera-slash text-2xl mb-1 text-rose-400"></i><p class="font-bold text-sm">Akses Kamera Ditolak</p>`;
+        showToast("Izinkan akses kamera di browser Anda.", "error");
     }
-
-    toast.classList.add('show');
-
-    setTimeout(() => {
-        toast.classList.remove('show');
-    }, 3000);
 }
+function stopCamera() {
+    if (stream) stream.getTracks().forEach(t => t.stop());
+}
+
+function getLocation() {
+    if (navigator.geolocation) {
+        locDot.classList.add('bg-amber-500');
+        locText.innerText = "Mencari GPS...";
+        navigator.geolocation.getCurrentPosition(
+            (pos) => {
+                userData.lat = pos.coords.latitude; userData.lng = pos.coords.longitude;
+                locDot.classList.replace('bg-amber-500', 'bg-emerald-500');
+                locDot.classList.remove('animate-pulse');
+                locText.innerText = `Akurat (${pos.coords.accuracy.toFixed(0)}m)`;
+            },
+            (err) => { locDot.classList.replace('bg-amber-500', 'bg-rose-500'); locText.innerText = "GPS Gagal"; showToast("Gagal mendapat lokasi GPS.", "error"); },
+            { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+        );
+    }
+}
+
+btnCapture.addEventListener('click', () => {
+    const MAX_WIDTH = 480;
+    let width = video.videoWidth, height = video.videoHeight;
+    if (width > MAX_WIDTH) { height = height * (MAX_WIDTH / width); width = MAX_WIDTH; }
+    canvas.width = width; canvas.height = height;
+    canvas.getContext('2d').drawImage(video, 0, 0, width, height);
+    userData.photoBase64 = canvas.toDataURL('image/jpeg', 0.3);
+
+    video.classList.add('hidden');
+    photoPreview.src = userData.photoBase64; photoPreview.classList.remove('hidden');
+    
+    btnCapture.classList.add('hidden');
+    btnRetake.classList.remove('hidden');
+    
+    btnSubmit.disabled = false;
+    btnSubmit.className = "w-full bg-primary hover:bg-blue-900 active:scale-95 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 transition-all shadow-sm mt-2";
+    btnSubmit.innerHTML = `Kirim Absensi Sekarang <i class="ph ph-paper-plane-right font-bold text-lg"></i>`;
+});
+
+btnRetake.addEventListener('click', () => {
+    userData.photoBase64 = null;
+    photoPreview.classList.add('hidden'); video.classList.remove('hidden');
+    btnRetake.classList.add('hidden'); btnCapture.classList.remove('hidden');
+    
+    btnSubmit.disabled = true;
+    btnSubmit.className = "w-full bg-slate-300 text-slate-500 font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 transition-all mt-2";
+    btnSubmit.innerHTML = `Silakan Ambil Foto <i class="ph ph-camera text-lg"></i>`;
+});
+
+btnSubmit.addEventListener('click', async () => {
+    if (!userData.lat || !userData.lng) return showToast("Lokasi GPS belum didapatkan.", "error");
+    const selectedStatus = inputStatus.value;
+    const alasan = inputAlasan.value.trim();
+    if ((selectedStatus === 'Sakit' || selectedStatus === 'Izin') && !alasan) return showToast("Mohon tulis alasan Anda!", "error");
+
+    loadingOverlay.classList.remove('hidden');
+    
+    try {
+        const payload = { action: "absen", nisn: userData.nisn, lat: userData.lat, lng: userData.lng, status: selectedStatus, alasan: alasan, photoBase64: userData.photoBase64 };
+        const res = await fetch(GOOGLE_SCRIPT_URL, { method: 'POST', body: JSON.stringify(payload), headers: { 'Content-Type': 'text/plain;charset=utf-8' }});
+        const result = await res.json();
+        
+        if (result.status === 'success') {
+            showToast("Berhasil Absen!");
+            fetchRekap(userData.nisn); // Update data
+            document.querySelector('[data-target=dashboard]').click(); // Go back to home
+        } else {
+            showToast(result.message, "error");
+        }
+    } catch (e) {
+        showToast("Terjadi kesalahan koneksi.", "error");
+    } finally {
+        loadingOverlay.classList.add('hidden');
+    }
+});
