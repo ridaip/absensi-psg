@@ -130,7 +130,25 @@ btnLanjut.addEventListener('click', async () => {
     }
 });
 
-// --- Logic Logout & Navigasi ---
+// --- Logic Logout, Navigasi, & Dropdown ---
+const btnProfileMenu = document.getElementById('btnProfileMenu');
+const dropdownMenu = document.getElementById('dropdownMenu');
+
+if (btnProfileMenu && dropdownMenu) {
+    btnProfileMenu.addEventListener('click', (e) => {
+        e.stopPropagation();
+        dropdownMenu.classList.toggle('opacity-0');
+        dropdownMenu.classList.toggle('invisible');
+        dropdownMenu.classList.toggle('scale-95');
+    });
+
+    document.addEventListener('click', (e) => {
+        if (!btnProfileMenu.contains(e.target) && !dropdownMenu.contains(e.target)) {
+            dropdownMenu.classList.add('opacity-0', 'invisible', 'scale-95');
+        }
+    });
+}
+
 document.getElementById('btnLogout').addEventListener('click', () => {
     localStorage.removeItem('nisn_pkl');
     localStorage.removeItem('nama_pkl');
