@@ -213,8 +213,8 @@ function applyFilters() {
         return true;
     });
 
-    // Fitur Khusus: Tampilkan Siswa "Belum Absen" jika filter Hari Ini dipilih
-    if (waktu === 'today' && daftarSiswaCache.length > 0) {
+    // Tampilkan Siswa "Belum Absen" jika mereka tidak memiliki data sama sekali di rentang waktu yang dipilih
+    if (daftarSiswaCache.length > 0) {
         const sudahAbsenNisn = filtered.map(item => item.nisn);
         const belumAbsen = daftarSiswaCache.filter(s => !sudahAbsenNisn.includes(s.nisn));
         
@@ -222,7 +222,7 @@ function applyFilters() {
             filtered.push({
                 nisn: s.nisn,
                 nama: s.nama,
-                tanggal: todayStr,
+                tanggal: waktu === 'today' ? todayStr : '--/--/----',
                 waktu: '--:--',
                 status: 'Belum Absen',
                 foto: null,
