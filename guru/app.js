@@ -15,6 +15,37 @@ const loadingOverlay = document.getElementById('loadingOverlay');
 const searchHarian = document.getElementById('searchHarian');
 const searchPeriodik = document.getElementById('searchPeriodik');
 const filterPeriodik = document.getElementById('filterPeriodik');
+const weekSelector = document.getElementById('weekSelector');
+const monthSelector = document.getElementById('monthSelector');
+const selectDetailSiswa = document.getElementById('selectDetailSiswa');
+const detailMonthSelector = document.getElementById('detailMonthSelector');
+const listDetailSiswa = document.getElementById('listDetailSiswa');
+
+// Initialize selectors default values
+const initNow = new Date();
+const currentMonthStr = `${initNow.getFullYear()}-${(initNow.getMonth()+1).toString().padStart(2,'0')}`;
+monthSelector.value = currentMonthStr;
+detailMonthSelector.value = currentMonthStr;
+
+function getWeekStr(d) {
+    const date = new Date(d.getTime());
+    date.setHours(0, 0, 0, 0);
+    date.setDate(date.getDate() + 3 - (date.getDay() + 6) % 7);
+    const week1 = new Date(date.getFullYear(), 0, 4);
+    const week = 1 + Math.round(((date.getTime() - week1.getTime()) / 86400000 - 3 + (week1.getDay() + 6) % 7) / 7);
+    return `${date.getFullYear()}-W${week.toString().padStart(2, '0')}`;
+}
+weekSelector.value = getWeekStr(initNow);
+
+function getMondayFromWeek(weekStr) {
+    if (!weekStr) return null;
+    const [year, week] = weekStr.split('-W');
+    const d = new Date(year, 0, 1);
+    const dayNum = d.getDay() || 7;
+    d.setDate(d.getDate() + 4 - dayNum);
+    d.setDate(d.getDate() + 7 * (week - 1) - 3);
+    return d;
+}
 
 // State
 let rawDataCache = [];
@@ -140,6 +171,16 @@ async function fetchData(namaGuru) {
             rawDataCache = result.data || [];
             daftarSiswaCache = result.siswa || [];
             pengaturanCache = result.pengaturan || { tglMulai: '', tglSelesai: '', libur: [] };
+            
+            // Populate Detail Siswa Select
+            selectDetailSiswa.innerHTML = '<option value="">-- Pilih Siswa --</option>';
+            daftarSiswaCache.forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s.nisn;
+                opt.textContent = s.nama;
+                selectDetailSiswa.appendChild(opt);
+            });
+            
             renderCurrentTab();
         } else {
             showToast(result.message, "error");
@@ -164,9 +205,11 @@ function getFilteredData(waktu, keyword) {
         }
         if (waktu === 'week') {
             const itemDate = parseDate(item.tanggal);
-            let day = now.getDay();
-            let diff = now.getDate() - day + (day === 0 ? -6 : 1); 
-            const monday = new Date(new Date().setDate(diff));
+            let monday = getMondayFromWeek(weekSelector.value);
+            if (!monday) {
+                let day = now.getDay();
+                monday = new Date(now.setDate(now.getDate() - day + (day === 0 ? -6 : 1)));
+            }
             monday.setHours(0,0,0,0);
             const sunday = new Date(monday);
             sunday.setDate(sunday.getDate() + 6);
@@ -175,6 +218,11 @@ function getFilteredData(waktu, keyword) {
         }
         if (waktu === 'month') {
             const itemDate = parseDate(item.tanggal);
+            const monthVal = monthSelector.value;
+            if (monthVal) {
+                const [y, m] = monthVal.split('-');
+                return itemDate.getFullYear() == y && (itemDate.getMonth() + 1) == m;
+            }
             return itemDate.getMonth() === now.getMonth() && itemDate.getFullYear() === now.getFullYear();
         }
         return true;
@@ -212,6 +260,7 @@ function renderCurrentTab() {
     if (currentTab === 'dashboard') renderDashboard();
     else if (currentTab === 'harian') renderHarian();
     else if (currentTab === 'periodik') renderPeriodik();
+    else if (currentTab === 'detail') renderDetailSiswa();
 }
 
 function renderDashboard() {
@@ -373,17 +422,18 @@ function renderPeriodik() {
         const now = new Date();
         
         if (waktu === 'week') {
-            let day = now.getDay();
-            let diff = now.getDate() - day + (day === 0 ? -6 : 1); 
-            const monday = new Date(now.setDate(diff));
+            let monday = getMondayFromWeek(weekSelector.value);
+            if(!monday) monday = new Date();
             for(let i=0; i<7; i++) {
                 let d = new Date(monday);
                 d.setDate(d.getDate() + i);
                 dates.push(`${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`);
             }
         } else if (waktu === 'month') {
-            const year = now.getFullYear();
-            const month = now.getMonth();
+            const monthVal = monthSelector.value || currentMonthStr;
+            const [yearStr, monthStr] = monthVal.split('-');
+            const year = parseInt(yearStr);
+            const month = parseInt(monthStr) - 1;
             const daysInMonth = new Date(year, month + 1, 0).getDate();
             for(let i=1; i<=daysInMonth; i++) {
                 dates.push(`${i.toString().padStart(2,'0')}/${(month+1).toString().padStart(2,'0')}/${year}`);
@@ -463,8 +513,70 @@ function renderPeriodik() {
     container.innerHTML = html;
 }
 
+function renderDetailSiswa() {
+    const nisn = selectDetailSiswa.value;
+    const monthVal = detailMonthSelector.value || currentMonthStr;
+    const [y, m] = monthVal.split('-');
+    
+    if (!nisn) {
+        listDetailSiswa.innerHTML = `<div class="text-center text-slate-400 text-sm py-10 font-medium">Pilih siswa terlebih dahulu.</div>`;
+        return;
+    }
+
+    const studentData = rawDataCache.filter(item => {
+        if (item.nisn !== nisn) return false;
+        const itemDate = parseDate(item.tanggal);
+        return itemDate.getFullYear() == y && (itemDate.getMonth() + 1) == m;
+    });
+    
+    // Sort by date ascending (oldest to newest)
+    studentData.sort((a,b) => parseDate(a.tanggal) - parseDate(b.tanggal));
+
+    if (!studentData.length) {
+        listDetailSiswa.innerHTML = `<div class="text-center text-slate-400 text-sm py-10 font-medium">Tidak ada data kehadiran di bulan ini.</div>`;
+        return;
+    }
+
+    let html = '';
+    studentData.forEach(item => {
+        let badgeColor = item.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            item.status === 'Izin' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+            'bg-rose-50 text-rose-700 border-rose-200';
+
+        let fotoUrl = item.foto;
+        if (fotoUrl && fotoUrl.includes('drive.google.com/file/d/')) {
+            const match = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match && match[1]) fotoUrl = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w120`;
+        }
+
+        html += `
+        <div class="bg-white border border-slate-200 shadow-sm rounded-xl p-3 flex gap-3 items-center">
+            ${fotoUrl ? `<img src="${fotoUrl}" class="w-12 h-12 rounded-lg object-cover bg-slate-100 border border-slate-200" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ3NTU2OSIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6Ii8+PC9zdmc+'" />` : '<div class="w-12 h-12 rounded-lg bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0"><i class="ph ph-image text-slate-300"></i></div>'}
+            <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-start mb-0.5">
+                    <span class="text-slate-800 font-semibold text-sm truncate">${item.tanggal} • ${item.waktu}</span>
+                    <span class="text-[10px] border px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${badgeColor}">${item.status}</span>
+                </div>
+                <div class="text-slate-500 text-xs font-medium">${item.alasan ? 'Alasan: ' + item.alasan : 'Lokasi: ' + (item.lat ? item.lat+','+item.lng : '-')}</div>
+            </div>
+        </div>`;
+    });
+    listDetailSiswa.innerHTML = html;
+}
+
 // Events
 searchHarian.addEventListener('input', renderHarian);
 searchPeriodik.addEventListener('input', renderPeriodik);
-filterPeriodik.addEventListener('change', renderPeriodik);
+filterPeriodik.addEventListener('change', (e) => {
+    const val = e.target.value;
+    weekSelector.classList.toggle('hidden', val !== 'week');
+    monthSelector.classList.toggle('hidden', val !== 'month');
+    renderPeriodik();
+});
+weekSelector.addEventListener('change', renderPeriodik);
+monthSelector.addEventListener('change', renderPeriodik);
+
+selectDetailSiswa.addEventListener('change', renderDetailSiswa);
+detailMonthSelector.addEventListener('change', renderDetailSiswa);
+
 document.getElementById('btnExportPdf').addEventListener('click', () => window.print());
