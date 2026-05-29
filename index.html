@@ -7,12 +7,12 @@
     
     <!-- PWA Settings -->
     <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#4F46E5">
+    <meta name="theme-color" content="#1E3A8A">
     <link rel="apple-touch-icon" href="./icon.png">
     <link rel="icon" type="image/png" href="./icon.png">
     
-    <!-- Google Fonts: Outfit -->
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <!-- Phosphor Icons -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
     
@@ -22,24 +22,19 @@
         tailwind.config = {
             theme: {
                 extend: {
-                    fontFamily: { sans: ['Outfit', 'sans-serif'] },
-                    colors: { primary: '#4F46E5' },
+                    fontFamily: { sans: ['Inter', 'sans-serif'] },
+                    colors: { primary: '#1E3A8A' },
                     animation: {
-                        'float': 'float 10s infinite ease-in-out alternate',
-                        'slideUp': 'slideUp 0.4s ease-out forwards',
-                        'scaleIn': 'scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
+                        'slideUp': 'slideUp 0.3s ease-out forwards',
+                        'scaleIn': 'scaleIn 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
                     },
                     keyframes: {
-                        float: {
-                            '0%': { transform: 'translate(0, 0) scale(1)' },
-                            '100%': { transform: 'translate(30px, 50px) scale(1.1)' }
-                        },
                         slideUp: {
-                            'from': { opacity: '0', transform: 'translateY(20px)' },
+                            'from': { opacity: '0', transform: 'translateY(15px)' },
                             'to': { opacity: '1', transform: 'translateY(0)' }
                         },
                         scaleIn: {
-                            '0%': { transform: 'scale(0)', opacity: '0' },
+                            '0%': { transform: 'scale(0.8)', opacity: '0' },
                             '100%': { transform: 'scale(1)', opacity: '1' }
                         }
                     }
@@ -48,15 +43,12 @@
         }
     </script>
     <style>
-        body { background-color: #0F172A; }
-        .bg-shape { position: absolute; border-radius: 50%; filter: blur(80px); z-index: 0; }
-        .glass { background: rgba(30, 41, 59, 0.65); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.08); }
+        body { background-color: #F1F5F9; }
         .camera-box { aspect-ratio: 3/4; }
         #toast { transition: bottom 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55); }
         #toast.show { bottom: 20px; }
         .spinner { border-top-color: transparent; animation: spin 1s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
-        /* Hide scrollbar for clean app look */
         ::-webkit-scrollbar { display: none; }
         
         /* Print/PDF Export Styles */
@@ -65,197 +57,191 @@
             body * { visibility: hidden; }
             #rekapSection, #rekapSection * { visibility: visible; color: black !important; border-color: #ccc !important; }
             #rekapSection { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: none !important; }
-            .glass, .bg-slate-900\/60 { background: white !important; border: 1px solid #ddd !important; }
             #btnExportPdf, #bulanRekap, nav { display: none !important; }
         }
     </style>
 </head>
-<body class="text-slate-100 min-h-screen flex items-center justify-center relative overflow-hidden antialiased">
+<body class="text-slate-800 min-h-screen flex items-center justify-center relative overflow-hidden antialiased">
 
-    <!-- Dynamic Background Elements -->
-    <div class="bg-shape bg-indigo-500/30 w-72 h-72 top-[-10%] left-[-10%] animate-float"></div>
-    <div class="bg-shape bg-emerald-500/20 w-64 h-64 bottom-[-10%] right-[-10%] animate-float" style="animation-delay: -5s"></div>
-
-    <!-- MAIN CONTAINER (Mobile Mockup / Constraints for PC) -->
-    <div class="w-full max-w-md h-[100dvh] md:h-[90vh] md:rounded-[2rem] flex flex-col relative z-10 overflow-y-auto md:shadow-2xl md:border md:border-slate-700/50">
+    <!-- MAIN CONTAINER -->
+    <div class="w-full max-w-md h-[100dvh] md:h-[90vh] md:rounded-[1.5rem] flex flex-col relative z-10 overflow-y-auto bg-slate-50 md:shadow-xl md:border md:border-slate-200">
         
-        <!-- Glassmorphism Container wrapper for consistent bg -->
-        <div class="flex-1 flex flex-col p-5 glass md:rounded-[2rem]">
+        <div class="flex-1 flex flex-col p-4 md:p-6">
             
             <!-- Header -->
-            <header class="glass rounded-2xl p-4 flex flex-col gap-4 mb-5 shadow-lg shrink-0">
+            <header class="bg-white rounded-2xl p-4 flex flex-col gap-4 mb-5 shadow-sm border border-slate-200 shrink-0">
                 <div class="flex justify-between items-center">
                     <!-- Logo -->
-                    <div class="flex items-center gap-2 text-primary font-bold text-xl">
-                        <img src="./icon.png" class="w-8 h-8 rounded-xl shadow-lg" alt="Logo">
-                        <h1 class="text-white tracking-wide">Absen<span class="text-primary">PSG</span></h1>
+                    <div class="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
+                        <img src="./icon.png" class="w-8 h-8 rounded-lg shadow-sm" alt="Logo">
+                        <h1 class="text-slate-800">Absen<span class="text-primary">PSG</span></h1>
                     </div>
                     
-                    <!-- User Profile & Logout (Hidden by default) -->
+                    <!-- User Profile & Logout -->
                     <div id="userProfile" class="hidden items-center gap-2">
-                        <div class="bg-slate-800/80 px-3 py-1.5 rounded-full text-xs sm:text-sm flex items-center gap-2 text-white max-w-[120px] sm:max-w-none border border-slate-700/80">
+                        <div class="bg-slate-100 px-3 py-1.5 rounded-full text-xs sm:text-sm flex items-center gap-2 text-slate-700 max-w-[120px] sm:max-w-none border border-slate-200 font-medium">
                             <i class="ph ph-user text-primary"></i> 
-                            <span id="displayNisn" class="font-semibold truncate"></span>
+                            <span id="displayNisn" class="truncate"></span>
                         </div>
-                        <button id="btnLogout" class="bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 p-2 rounded-full transition-all border border-rose-500/20" title="Keluar">
+                        <button id="btnLogout" class="bg-rose-50 text-rose-600 hover:bg-rose-100 p-2 rounded-full transition-all border border-rose-100" title="Keluar">
                             <i class="ph ph-sign-out text-lg"></i>
                         </button>
                     </div>
                 </div>
 
-                <!-- Navigation Tabs (Hidden by default) -->
-                <div id="navTabs" class="hidden flex bg-slate-900/60 p-1 rounded-xl border border-slate-700/50 relative">
-                    <button id="btnNavAbsen" class="flex-1 text-white bg-primary font-semibold text-sm py-2 rounded-lg transition-all shadow-md shadow-primary/20">Kamera Absen</button>
-                    <button id="btnNavRekap" class="flex-1 text-slate-400 font-medium text-sm hover:text-white py-2 rounded-lg transition-all">Riwayat Rekap</button>
+                <!-- Navigation Tabs -->
+                <div id="navTabs" class="hidden flex bg-slate-100 p-1 rounded-xl border border-slate-200 relative">
+                    <button id="btnNavAbsen" class="flex-1 text-white bg-primary font-semibold text-sm py-2 rounded-lg transition-all shadow-sm">Kamera Absen</button>
+                    <button id="btnNavRekap" class="flex-1 text-slate-500 font-medium text-sm hover:text-slate-800 py-2 rounded-lg transition-all">Riwayat Rekap</button>
                 </div>
             </header>
 
             <main class="flex-1 flex flex-col justify-center">
                 <!-- LOGIN SECTION -->
-                <section id="loginSection" class="glass rounded-3xl p-6 shadow-xl flex flex-col gap-5 animate-slideUp">
+                <section id="loginSection" class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 flex flex-col gap-5 animate-slideUp">
                     <div class="text-center text-primary text-6xl mb-2">
-                        <i class="ph-duotone ph-student"></i>
+                        <i class="ph-duotone ph-buildings"></i>
                     </div>
                     <div class="text-center mb-2">
-                        <h2 class="text-2xl font-bold text-white">Login Siswa</h2>
-                        <p class="text-slate-400 text-sm mt-1">Silakan masukkan NISN dan Tanggal Lahir untuk masuk.</p>
+                        <h2 class="text-2xl font-bold text-slate-800 tracking-tight">Login Siswa</h2>
+                        <p class="text-slate-500 text-sm mt-1">Silakan masukkan NISN dan Tanggal Lahir untuk masuk ke sistem kehadiran.</p>
                     </div>
                     
                     <div class="relative flex items-center">
                         <i class="ph ph-identification-card absolute left-4 text-slate-400 text-xl"></i>
                         <input type="number" id="inputNisn" placeholder="Nomor Induk Siswa" required
-                            class="w-full bg-slate-900/60 border border-slate-700/50 text-white rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
+                            class="w-full bg-white border border-slate-300 text-slate-800 rounded-xl py-3.5 pl-12 pr-4 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium">
                     </div>
 
                     <div class="relative flex items-center">
                         <i class="ph ph-calendar-blank absolute left-4 text-slate-400 text-xl"></i>
                         <input type="date" id="inputTglLahir" required
-                            class="w-full bg-slate-900/60 border border-slate-700/50 text-slate-400 rounded-2xl py-4 pl-12 pr-4 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all">
+                            class="w-full bg-white border border-slate-300 text-slate-600 rounded-xl py-3.5 pl-12 pr-4 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all font-medium">
                     </div>
 
-                    <button id="btnLanjut" class="w-full bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 hover:to-indigo-400 active:scale-95 text-white font-semibold rounded-2xl py-4 flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/25">
-                        Login Sekarang <i class="ph ph-arrow-right font-bold"></i>
+                    <button id="btnLanjut" class="w-full bg-primary hover:bg-blue-900 active:scale-95 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 transition-all shadow-sm mt-2">
+                        Masuk Sistem <i class="ph ph-arrow-right font-bold"></i>
                     </button>
                 </section>
 
                 <!-- ATTENDANCE SECTION -->
-                <section id="absenSection" class="glass rounded-3xl p-6 shadow-xl hidden flex-col gap-4 animate-slideUp">
+                <section id="absenSection" class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 hidden flex-col gap-4 animate-slideUp">
                     
                     <!-- Location Status Card -->
-                    <div class="bg-slate-900/50 rounded-2xl p-4 border border-slate-700/30 flex items-center gap-3">
-                        <i class="ph ph-map-pin text-3xl text-primary drop-shadow-[0_0_8px_rgba(79,70,229,0.5)]"></i>
+                    <div class="bg-slate-50 rounded-xl p-3 border border-slate-200 flex items-center gap-3">
+                        <div class="bg-white p-2 rounded-lg shadow-sm border border-slate-100">
+                            <i class="ph ph-map-pin text-2xl text-primary"></i>
+                        </div>
                         <div>
-                            <span class="text-slate-400 text-xs font-semibold uppercase tracking-wider block">Lokasi Saat Ini</span>
-                            <p id="locationStatus" class="text-sm font-medium text-white leading-tight mt-0.5">Mencari lokasi GPS...</p>
+                            <span class="text-slate-500 text-xs font-semibold uppercase tracking-wider block">Lokasi Saat Ini</span>
+                            <p id="locationStatus" class="text-sm font-semibold text-slate-800 leading-tight mt-0.5">Mencari lokasi GPS...</p>
                         </div>
                     </div>
 
                     <!-- Input Status & Alasan -->
                     <div class="flex flex-col gap-3">
-                        <div class="bg-slate-900/50 rounded-2xl p-1 border border-slate-700/30 flex text-sm text-center font-medium">
+                        <div class="bg-slate-100 rounded-xl p-1 border border-slate-200 flex text-sm text-center font-semibold">
                             <label class="flex-1 cursor-pointer">
                                 <input type="radio" name="statusAbsen" value="Hadir" class="peer hidden" checked>
-                                <div class="peer-checked:bg-emerald-500 peer-checked:text-white text-slate-400 py-2 rounded-xl transition-all">Hadir</div>
+                                <div class="peer-checked:bg-white peer-checked:text-emerald-600 peer-checked:shadow-sm text-slate-500 py-2 rounded-lg transition-all border border-transparent peer-checked:border-slate-200">Hadir</div>
                             </label>
                             <label class="flex-1 cursor-pointer">
                                 <input type="radio" name="statusAbsen" value="Izin" class="peer hidden">
-                                <div class="peer-checked:bg-amber-500 peer-checked:text-white text-slate-400 py-2 rounded-xl transition-all">Izin</div>
+                                <div class="peer-checked:bg-white peer-checked:text-amber-600 peer-checked:shadow-sm text-slate-500 py-2 rounded-lg transition-all border border-transparent peer-checked:border-slate-200">Izin</div>
                             </label>
                             <label class="flex-1 cursor-pointer">
                                 <input type="radio" name="statusAbsen" value="Sakit" class="peer hidden">
-                                <div class="peer-checked:bg-rose-500 peer-checked:text-white text-slate-400 py-2 rounded-xl transition-all">Sakit</div>
+                                <div class="peer-checked:bg-white peer-checked:text-rose-600 peer-checked:shadow-sm text-slate-500 py-2 rounded-lg transition-all border border-transparent peer-checked:border-slate-200">Sakit</div>
                             </label>
                         </div>
                         
                         <div id="alasanContainer" class="hidden animate-slideUp">
-                            <textarea id="inputAlasan" placeholder="Tuliskan alasan Anda..." class="w-full bg-slate-900/60 border border-slate-700/50 text-white rounded-2xl p-4 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 transition-all text-sm min-h-[80px] resize-none"></textarea>
+                            <textarea id="inputAlasan" placeholder="Tuliskan keterangan/alasan Anda..." class="w-full bg-white border border-slate-300 text-slate-800 rounded-xl p-3.5 outline-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all text-sm min-h-[80px] resize-none font-medium"></textarea>
                         </div>
                     </div>
 
                     <!-- Camera Box -->
-                    <div class="camera-box w-full rounded-2xl overflow-hidden relative bg-black shadow-inner border border-slate-700/50">
+                    <div class="camera-box w-full rounded-2xl overflow-hidden relative bg-slate-900 shadow-inner">
                         <video id="cameraFeed" autoplay playsinline class="w-full h-full object-cover"></video>
                         <canvas id="photoCanvas" class="hidden"></canvas>
                         <img id="photoPreview" class="hidden w-full h-full object-cover" alt="Hasil Foto">
                         
                         <!-- Face Guide Overlay -->
-                        <div class="face-guide absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/5 h-3/5 border-2 border-dashed border-white/40 rounded-full pointer-events-none transition-opacity duration-300"></div>
+                        <div class="face-guide absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-3/5 h-3/5 border-2 border-dashed border-white/60 rounded-full pointer-events-none transition-opacity duration-300"></div>
                     </div>
 
                     <!-- Action Buttons -->
                     <div class="flex gap-3 mt-1">
-                        <button id="btnRetake" class="hidden flex-1 bg-slate-700/50 hover:bg-slate-700 active:scale-95 text-white font-semibold rounded-2xl py-3 items-center justify-center gap-2 transition-all">
+                        <button id="btnRetake" class="hidden flex-1 bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-semibold rounded-xl py-3 items-center justify-center gap-2 transition-all border border-slate-300">
                             <i class="ph ph-camera-rotate text-lg"></i> Ulang
                         </button>
-                        <button id="btnCapture" class="flex-1 bg-gradient-to-r from-indigo-600 to-indigo-500 hover:from-indigo-500 active:scale-95 text-white font-semibold rounded-2xl py-4 flex items-center justify-center gap-2 transition-all shadow-lg shadow-indigo-500/25">
-                            <i class="ph ph-aperture text-xl"></i> Ambil Selfie
+                        <button id="btnCapture" class="flex-1 bg-slate-800 hover:bg-slate-900 active:scale-95 text-white font-semibold rounded-xl py-3.5 flex items-center justify-center gap-2 transition-all shadow-sm">
+                            <i class="ph ph-aperture text-xl"></i> Ambil Foto
                         </button>
                     </div>
 
-                    <button id="btnSubmit" class="hidden w-full bg-gradient-to-r from-emerald-500 to-emerald-400 hover:from-emerald-400 hover:to-emerald-300 active:scale-95 text-white font-semibold rounded-2xl py-4 items-center justify-center gap-2 transition-all shadow-lg shadow-emerald-500/25 mt-2">
-                        <i class="ph ph-paper-plane-tilt text-xl"></i> Kirim Absen Sekarang
+                    <button id="btnSubmit" class="hidden w-full bg-primary hover:bg-blue-900 active:scale-95 text-white font-semibold rounded-xl py-3.5 items-center justify-center gap-2 transition-all shadow-sm mt-1">
+                        <i class="ph ph-paper-plane-tilt text-xl"></i> Kirim Kehadiran
                     </button>
                 </section>
 
                 <!-- REKAP SECTION -->
-                <section id="rekapSection" class="glass rounded-3xl p-6 shadow-xl hidden flex-col gap-4 animate-slideUp flex-1 min-h-[300px]">
+                <section id="rekapSection" class="bg-white rounded-3xl p-6 shadow-sm border border-slate-200 hidden flex-col gap-4 animate-slideUp flex-1 min-h-[300px]">
                     <div class="flex justify-between items-center">
-                        <h2 class="text-xl font-bold text-white">Riwayat Absen</h2>
+                        <h2 class="text-xl font-bold text-slate-800 tracking-tight">Riwayat Absen</h2>
                         <div class="flex gap-2">
-                            <select id="bulanRekap" class="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg px-2 py-1.5 outline-none focus:border-primary">
+                            <select id="bulanRekap" class="bg-white border border-slate-300 text-slate-700 font-medium text-sm rounded-lg px-2 py-1.5 outline-none focus:border-primary focus:ring-2 focus:ring-primary/20 cursor-pointer shadow-sm">
                                 <option value="all">Semua Bulan</option>
                             </select>
-                            <button id="btnExportPdf" class="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 px-2 rounded-lg transition-all shadow-md flex items-center justify-center gap-1 text-sm font-semibold" title="Cetak PDF">
-                                <i class="ph ph-printer text-lg"></i>
+                            <button id="btnExportPdf" class="bg-white border border-slate-300 hover:bg-slate-50 text-slate-700 p-1.5 px-2.5 rounded-lg transition-all shadow-sm flex items-center justify-center gap-1.5 text-sm font-semibold" title="Cetak PDF">
+                                <i class="ph ph-printer text-lg"></i> Cetak
                             </button>
                         </div>
                     </div>
                     
                     <div id="rekapContainer" class="flex-1 overflow-y-auto pr-1 space-y-3 mt-1 flex flex-col">
                         <div class="text-center text-slate-400 text-sm py-10 flex flex-col items-center gap-2">
-                            <div class="spinner w-6 h-6 border-2 border-white/10 border-t-primary rounded-full"></div>
+                            <div class="spinner w-6 h-6 border-2 border-slate-200 border-t-primary rounded-full"></div>
                             Memuat data...
                         </div>
                     </div>
                 </section>
 
                 <!-- SUCCESS SECTION -->
-                <section id="successSection" class="glass rounded-3xl p-8 shadow-xl hidden flex-col items-center text-center gap-4 animate-slideUp">
-                    <div class="text-7xl text-emerald-400 mb-2 animate-scaleIn drop-shadow-[0_0_15px_rgba(16,185,129,0.4)]">
+                <section id="successSection" class="bg-white rounded-3xl p-8 shadow-sm border border-slate-200 hidden flex-col items-center text-center gap-4 animate-slideUp">
+                    <div class="text-7xl text-emerald-500 mb-2 animate-scaleIn">
                         <i class="ph-fill ph-check-circle"></i>
                     </div>
-                    <h2 class="text-3xl font-bold text-white">Berhasil!</h2>
-                    <p class="text-slate-300 text-sm">Data lokasi dan foto selfie Anda telah berhasil direkam ke dalam sistem.</p>
+                    <h2 class="text-2xl font-bold text-slate-800 tracking-tight">Berhasil Disimpan!</h2>
+                    <p class="text-slate-500 text-sm">Data lokasi dan foto presensi Anda telah berhasil direkam ke dalam sistem.</p>
                     
-                    <div id="timeStampDisplay" class="bg-slate-900/60 border border-slate-700/50 w-full py-3 rounded-xl font-mono text-emerald-300 mt-2 font-medium tracking-wide">
+                    <div id="timeStampDisplay" class="bg-slate-50 border border-slate-200 w-full py-3 rounded-xl font-mono text-slate-700 mt-2 font-semibold tracking-wide text-sm">
                         --:--
                     </div>
                     
-                    <button id="btnKembali" class="w-full bg-slate-700/50 hover:bg-slate-700 active:scale-95 text-white font-semibold rounded-2xl py-4 mt-4 transition-all">
+                    <button id="btnKembali" class="w-full bg-slate-100 hover:bg-slate-200 active:scale-95 text-slate-700 font-semibold rounded-xl py-3.5 mt-4 transition-all border border-slate-200">
                         Kembali ke Awal
                     </button>
                 </section>
             </main>
         </div>
 
-        <!-- Loading Overlay (Absolute inside container) -->
-        <div id="loadingOverlay" class="absolute inset-0 bg-slate-900/80 backdrop-blur-sm z-50 hidden flex-col justify-center items-center rounded-[2rem]">
-            <div class="spinner w-12 h-12 border-4 border-white/10 border-t-indigo-500 rounded-full mb-4"></div>
-            <p class="text-white font-medium animate-pulse">Memproses data absen...</p>
+        <!-- Loading Overlay -->
+        <div id="loadingOverlay" class="absolute inset-0 bg-slate-900/40 backdrop-blur-sm z-50 hidden flex-col justify-center items-center md:rounded-[1.5rem]">
+            <div class="spinner w-10 h-10 border-4 border-white/20 border-t-white rounded-full mb-4 shadow-md"></div>
+            <p class="text-white font-semibold text-sm drop-shadow-md">Memproses data...</p>
         </div>
 
     </div>
 
-    <!-- Toast Notification (Fixed to bottom of screen) -->
-    <div id="toast" class="fixed -bottom-24 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-6 py-3 rounded-full font-semibold shadow-xl shadow-emerald-500/20 z-[100] whitespace-nowrap flex items-center gap-2">
-        <i class="ph-fill ph-check-circle text-xl"></i>
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed -bottom-24 left-1/2 -translate-x-1/2 bg-slate-800 text-white px-5 py-3 rounded-xl font-semibold shadow-xl z-[100] whitespace-nowrap flex items-center gap-2 text-sm border border-slate-700">
+        <i class="ph-fill ph-info text-lg text-blue-400"></i>
         <span id="toastMsg">Notifikasi</span>
     </div>
 
     <script src="app.js"></script>
     <script>
-        // Update Toast style script slightly because classes changed
-        // Overriding the app.js showToast behavior for Tailwind classes
         window.showToast = function(message, type = "success") {
             const toast = document.getElementById('toast');
             const toastMsg = document.getElementById('toastMsg');
@@ -264,23 +250,18 @@
             toastMsg.innerText = message;
             
             if (type === "error") {
-                toast.className = "fixed -bottom-24 left-1/2 -translate-x-1/2 bg-rose-500 text-white px-6 py-3 rounded-full font-semibold shadow-xl shadow-rose-500/20 z-[100] whitespace-nowrap flex items-center gap-2 transition-all duration-300";
-                icon.className = "ph-fill ph-warning-circle text-xl";
+                toast.className = "fixed -bottom-24 left-1/2 -translate-x-1/2 bg-rose-50 text-rose-700 px-5 py-3 rounded-xl font-semibold shadow-lg z-[100] whitespace-nowrap flex items-center gap-2 transition-all duration-300 text-sm border border-rose-200";
+                icon.className = "ph-fill ph-warning-circle text-lg text-rose-500";
             } else {
-                toast.className = "fixed -bottom-24 left-1/2 -translate-x-1/2 bg-emerald-500 text-white px-6 py-3 rounded-full font-semibold shadow-xl shadow-emerald-500/20 z-[100] whitespace-nowrap flex items-center gap-2 transition-all duration-300";
-                icon.className = "ph-fill ph-check-circle text-xl";
+                toast.className = "fixed -bottom-24 left-1/2 -translate-x-1/2 bg-emerald-50 text-emerald-700 px-5 py-3 rounded-xl font-semibold shadow-lg z-[100] whitespace-nowrap flex items-center gap-2 transition-all duration-300 text-sm border border-emerald-200";
+                icon.className = "ph-fill ph-check-circle text-lg text-emerald-500";
             }
 
-            // Trigger show
             setTimeout(() => { toast.classList.add('!bottom-8'); }, 10);
-            
-            setTimeout(() => {
-                toast.classList.remove('!bottom-8');
-            }, 3000);
+            setTimeout(() => { toast.classList.remove('!bottom-8'); }, 3000);
         }
     </script>
     
-    <!-- Register Service Worker for PWA -->
     <script>
         if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {

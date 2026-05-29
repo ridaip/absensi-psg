@@ -141,8 +141,8 @@ const sectionRekap = document.getElementById('rekapSection');
 const btnNavAbsen = document.getElementById('btnNavAbsen');
 const btnNavRekap = document.getElementById('btnNavRekap');
 
-const ACTIVE_TAB = ['text-white', 'bg-primary', 'font-semibold', 'shadow-md', 'shadow-primary/20'];
-const INACTIVE_TAB = ['text-slate-400', 'font-medium', 'hover:text-white', 'bg-transparent', 'shadow-none'];
+const ACTIVE_TAB = ['text-white', 'bg-primary', 'font-semibold', 'shadow-sm'];
+const INACTIVE_TAB = ['text-slate-500', 'font-medium', 'hover:text-slate-800', 'bg-transparent', 'shadow-none'];
 
 function setTabActive(activeBtn, inactiveBtn) {
     activeBtn.classList.remove(...INACTIVE_TAB);
@@ -235,12 +235,12 @@ function getLocation() {
             (position) => {
                 userData.lat = position.coords.latitude;
                 userData.lng = position.coords.longitude;
-                locationStatus.innerHTML = `<span style="color:var(--success)">Akurat (${position.coords.accuracy.toFixed(0)}m)</span><br><small>${userData.lat.toFixed(5)}, ${userData.lng.toFixed(5)}</small>`;
+                locationStatus.innerHTML = `<span class="text-emerald-600 font-bold text-xs uppercase tracking-wider">Akurat (${position.coords.accuracy.toFixed(0)}m)</span><br><span class="text-slate-600 text-xs font-medium">${userData.lat.toFixed(5)}, ${userData.lng.toFixed(5)}</span>`;
             },
             (error) => {
                 let msg = "Gagal mengambil lokasi.";
                 if (error.code == 1) msg = "Akses GPS ditolak.";
-                locationStatus.innerHTML = `<span style="color:#EF4444">${msg}</span>`;
+                locationStatus.innerHTML = `<span class="text-rose-600 font-bold text-xs uppercase tracking-wider">${msg}</span>`;
                 showToast(msg, "error");
             },
             { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
@@ -403,9 +403,9 @@ function renderRekap(data) {
 
     let html = '';
     data.forEach(item => {
-        let badgeColor = item.status === 'Hadir' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
-            item.status === 'Izin' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
-                'bg-rose-500/20 text-rose-400 border-rose-500/30';
+        let badgeColor = item.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+            item.status === 'Izin' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                'bg-rose-50 text-rose-700 border-rose-200';
                 
         // Ubah URL Google Drive standar (Viewer) menjadi URL Thumbnail agar bisa tampil di tag <img>
         let fotoUrl = item.foto;
@@ -417,14 +417,14 @@ function renderRekap(data) {
         }
 
         html += `
-        <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-3 flex gap-3 items-center">
-            ${fotoUrl ? `<img src="${fotoUrl}" class="w-12 h-12 rounded-lg object-cover bg-black" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ3NTU2OSIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6Ii8+PC9zdmc+'" />` : '<div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center"><i class="ph ph-image text-slate-500"></i></div>'}
+        <div class="bg-white border border-slate-200 shadow-sm rounded-xl p-3 flex gap-3 items-center">
+            ${fotoUrl ? `<img src="${fotoUrl}" class="w-12 h-12 rounded-lg object-cover bg-slate-100 border border-slate-200" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ3NTU2OSIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6Ii8+PC9zdmc+'" />` : '<div class="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center"><i class="ph ph-image text-slate-400"></i></div>'}
             <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-start mb-0.5">
-                    <span class="text-white font-medium text-sm truncate">${item.tanggal}</span>
-                    <span class="text-xs border px-2 py-0.5 rounded-md font-semibold ${badgeColor}">${item.status}</span>
+                    <span class="text-slate-800 font-semibold text-sm truncate">${item.tanggal}</span>
+                    <span class="text-[10px] border px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${badgeColor}">${item.status}</span>
                 </div>
-                <div class="text-slate-400 text-xs truncate">${item.waktu} ${item.alasan ? '• ' + item.alasan : ''}</div>
+                <div class="text-slate-500 text-xs font-medium truncate">${item.waktu} ${item.alasan ? '• ' + item.alasan : ''}</div>
             </div>
         </div>
         `;
