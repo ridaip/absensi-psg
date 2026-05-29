@@ -137,14 +137,20 @@ const dropdownMenu = document.getElementById('dropdownMenu');
 if (btnProfileMenu && dropdownMenu) {
     btnProfileMenu.addEventListener('click', (e) => {
         e.stopPropagation();
-        dropdownMenu.classList.toggle('opacity-0');
-        dropdownMenu.classList.toggle('invisible');
-        dropdownMenu.classList.toggle('scale-95');
+        const isClosed = dropdownMenu.classList.contains('opacity-0');
+        if (isClosed) {
+            dropdownMenu.classList.remove('opacity-0', 'invisible', 'scale-95');
+            dropdownMenu.classList.add('opacity-100', 'visible', 'scale-100');
+        } else {
+            dropdownMenu.classList.add('opacity-0', 'invisible', 'scale-95');
+            dropdownMenu.classList.remove('opacity-100', 'visible', 'scale-100');
+        }
     });
 
     document.addEventListener('click', (e) => {
         if (!btnProfileMenu.contains(e.target) && !dropdownMenu.contains(e.target)) {
             dropdownMenu.classList.add('opacity-0', 'invisible', 'scale-95');
+            dropdownMenu.classList.remove('opacity-100', 'visible', 'scale-100');
         }
     });
 }
