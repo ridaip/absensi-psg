@@ -7,8 +7,9 @@ const sectionAbsen = document.getElementById('absenSection');
 const sectionSuccess = document.getElementById('successSection');
 
 const inputNisn = document.getElementById('inputNisn');
+const inputTglLahir = document.getElementById('inputTglLahir');
 const btnLanjut = document.getElementById('btnLanjut');
-const userBadge = document.getElementById('userBadge');
+const userMenu = document.getElementById('userMenu');
 const displayNisn = document.getElementById('displayNisn');
 
 const video = document.getElementById('cameraFeed');
@@ -31,25 +32,127 @@ let userData = {
 
 let stream = null;
 
+// On Load Check LocalStorage
+window.onload = () => {
+    const savedNisn = localStorage.getItem('nisn_pkl');
+    const savedNama = localStorage.getItem('nama_pkl');
+
+    if (savedNisn) {
+        userData.nisn = savedNisn;
+        displayNisn.innerText = savedNama || savedNisn;
+        userMenu.style.display = 'flex';
+
+        sectionLogin.style.display = 'none';
+        sectionAbsen.style.display = 'flex';
+
+        initCamera();
+        getLocation();
+    }
+};
+
+// --- Logic Status & Alasan ---
+const radioStatus = document.querySelectorAll('input[name="statusAbsen"]');
+const alasanContainer = document.getElementById('alasanContainer');
+const inputAlasan = document.getElementById('inputAlasan');
+
+radioStatus.forEach(radio => {
+    radio.addEventListener('change', (e) => {
+        if (e.target.value === 'Sakit' || e.target.value === 'Izin') {
+            alasanContainer.style.display = 'block';
+        } else {
+            alasanContainer.style.display = 'none';
+            inputAlasan.value = '';
+        }
+    });
+});
+
 // --- Flow 1: Login / Masukkan NISN ---
-btnLanjut.addEventListener('click', () => {
+btnLanjut.addEventListener('click', async () => {
     const nisn = inputNisn.value.trim();
-    if (!nisn) {
-        showToast("Mohon masukkan NISN Anda", "error");
+    const tglLahirRaw = inputTglLahir.value; // format HTML date YYYY-MM-DD
+
+    if (!nisn || !tglLahirRaw) {
+        showToast("Mohon masukkan NISN dan Tanggal Lahir", "error");
         return;
     }
 
-    userData.nisn = nisn;
-    displayNisn.innerText = nisn;
-    userBadge.style.display = 'flex';
+    // Format YYYY-MM-DD menjadi DD/MM/YYYY
+    const [year, month, day] = tglLahirRaw.split('-');
+    const tglLahirFormatted = `${day}/${month}/${year}`;
 
-    // Pindah ke halaman absen
-    sectionLogin.style.display = 'none';
+    // Tampilkan loading di tombol
+    const originalText = btnLanjut.innerHTML;
+    btnLanjut.innerHTML = `<div class="spinner w-5 h-5 border-2 border-white/20 border-t-white rounded-full"></div> Memverifikasi...`;
+    btnLanjut.disabled = true;
+
+    try {
+        const payload = {
+            action: "login",
+            nisn: nisn,
+            tglLahir: tglLahirFormatted
+        };
+
+        const res = await fetch(GOOGLE_SCRIPT_URL, {
+            method: 'POST',
+            body: JSON.stringify(payload),
+            headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+        });
+
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            userData.nisn = nisn;
+            displayNisn.innerText = result.nama || nisn;
+            userMenu.style.display = 'flex';
+
+            // Save to cache
+            localStorage.setItem('nisn_pkl', nisn);
+            if (result.nama) localStorage.setItem('nama_pkl', result.nama);
+
+            // Pindah ke halaman absen
+            sectionLogin.style.display = 'none';
+            sectionAbsen.style.display = 'flex';
+
+            // Mulai GPS dan Kamera
+            initCamera();
+            getLocation();
+        } else {
+            showToast(result.message, "error");
+        }
+    } catch (e) {
+        showToast("Koneksi gagal saat memverifikasi.", "error");
+    } finally {
+        btnLanjut.innerHTML = originalText;
+        btnLanjut.disabled = false;
+    }
+});
+
+// --- Logic Logout & Navigasi ---
+document.getElementById('btnLogout').addEventListener('click', () => {
+    localStorage.removeItem('nisn_pkl');
+    localStorage.removeItem('nama_pkl');
+    window.location.reload();
+});
+
+const sectionRekap = document.getElementById('rekapSection');
+const btnNavAbsen = document.getElementById('btnNavAbsen');
+const btnNavRekap = document.getElementById('btnNavRekap');
+
+btnNavAbsen.addEventListener('click', () => {
+    sectionRekap.style.display = 'none';
+    sectionSuccess.style.display = 'none';
     sectionAbsen.style.display = 'flex';
+    btnNavAbsen.classList.add('hidden');
+    btnNavRekap.classList.remove('hidden');
+});
 
-    // Mulai GPS dan Kamera
-    initCamera();
-    getLocation();
+btnNavRekap.addEventListener('click', () => {
+    sectionAbsen.style.display = 'none';
+    sectionSuccess.style.display = 'none';
+    sectionRekap.style.display = 'flex';
+    btnNavRekap.classList.add('hidden');
+    btnNavAbsen.classList.remove('hidden');
+    loadRekap();
 });
 
 // --- Flow 2: Kamera (Ambil Foto) ---
@@ -147,6 +250,14 @@ btnSubmit.addEventListener('click', async () => {
         return;
     }
 
+    const selectedStatus = document.querySelector('input[name="statusAbsen"]:checked').value;
+    const alasan = inputAlasan.value.trim();
+
+    if ((selectedStatus === 'Sakit' || selectedStatus === 'Izin') && !alasan) {
+        showToast("Mohon tuliskan alasan Anda!", "error");
+        return;
+    }
+
     // Tampilkan Loading
     loadingOverlay.style.display = 'flex';
 
@@ -155,7 +266,8 @@ btnSubmit.addEventListener('click', async () => {
         lat: userData.lat,
         lng: userData.lng,
         photoBase64: userData.photoBase64,
-        status: "Sesuai" // Di sini nanti bisa tambahkan logika hitung jarak Geofence jika mau
+        status: selectedStatus,
+        alasan: alasan
     };
 
     try {
@@ -200,8 +312,104 @@ btnSubmit.addEventListener('click', async () => {
 
 // Kembali ke Awal
 document.getElementById('btnKembali').addEventListener('click', () => {
-    window.location.reload();
+    sectionSuccess.style.display = 'none';
+    sectionAbsen.style.display = 'flex';
+
+    // Reset form & ui
+    inputAlasan.value = '';
+    document.querySelector('input[name="statusAbsen"][value="Hadir"]').checked = true;
+    alasanContainer.style.display = 'none';
+    btnRetake.click();
 });
+
+// --- Utility: Load Rekap Bulanan ---
+let allRekapData = [];
+async function loadRekap() {
+    const container = document.getElementById('rekapContainer');
+    const selectBulan = document.getElementById('bulanRekap');
+
+    container.innerHTML = `<div class="text-center text-slate-400 text-sm py-10 flex flex-col items-center gap-2"><div class="spinner w-6 h-6 border-2 border-white/10 border-t-primary rounded-full"></div>Memuat data...</div>`;
+
+    try {
+        const res = await fetch(`${GOOGLE_SCRIPT_URL}?action=getRekap&nisn=${userData.nisn}`);
+        const result = await res.json();
+
+        if (result.status === 'success') {
+            allRekapData = result.data;
+            populateBulanDropdown(allRekapData, selectBulan);
+            renderRekap(allRekapData);
+
+            selectBulan.onchange = (e) => {
+                if (e.target.value === 'all') {
+                    renderRekap(allRekapData);
+                } else {
+                    const filtered = allRekapData.filter(item => {
+                        const parts = item.tanggal.split('/');
+                        // Support format MM/DD/YYYY atau DD/MM/YYYY dari Google Sheet (sesuaikan format locale browser)
+                        // Biasanya Date local akan ambil angka bulan, mari kita pakai regex atau index
+                        const isMonth = parts[0].length > 2 ? false : true;
+                        // Simplified approach: just check if month-year matches substring
+                        const [, month, year] = parts;
+                        return `${month}-${year}` === e.target.value || `${parts[1]}-${parts[2]}` === e.target.value || `${parts[0]}-${parts[2]}` === e.target.value; // very loose matching depending on spreadsheet locale
+                    });
+                    renderRekap(filtered);
+                }
+            };
+        } else {
+            container.innerHTML = `<div class="text-center text-rose-400 py-4">Gagal memuat rekap.</div>`;
+        }
+    } catch (e) {
+        container.innerHTML = `<div class="text-center text-rose-400 py-4">Error koneksi.</div>`;
+    }
+}
+
+function populateBulanDropdown(data, selectElement) {
+    const uniqueMonths = new Set();
+    data.forEach(item => {
+        const parts = item.tanggal.split('/');
+        if (parts.length === 3) {
+            // Assume format id-ID -> DD/MM/YYYY
+            uniqueMonths.add(`${parts[1]}-${parts[2]}`);
+        }
+    });
+
+    let html = '<option value="all">Semua Bulan</option>';
+    uniqueMonths.forEach(m => {
+        const [month, year] = m.split('-');
+        const monthName = new Date(year, month - 1).toLocaleString('id-ID', { month: 'long' });
+        html += `<option value="${m}">${monthName} ${year}</option>`;
+    });
+    selectElement.innerHTML = html;
+}
+
+function renderRekap(data) {
+    const container = document.getElementById('rekapContainer');
+    if (data.length === 0) {
+        container.innerHTML = `<div class="text-center text-slate-400 py-10">Belum ada riwayat absen.</div>`;
+        return;
+    }
+
+    let html = '';
+    data.forEach(item => {
+        let badgeColor = item.status === 'Hadir' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
+            item.status === 'Izin' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
+                'bg-rose-500/20 text-rose-400 border-rose-500/30';
+
+        html += `
+        <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-3 flex gap-3 items-center">
+            ${item.foto ? `<img src="${item.foto}" class="w-12 h-12 rounded-lg object-cover bg-black" />` : '<div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center"><i class="ph ph-image text-slate-500"></i></div>'}
+            <div class="flex-1 min-w-0">
+                <div class="flex justify-between items-start mb-0.5">
+                    <span class="text-white font-medium text-sm truncate">${item.tanggal}</span>
+                    <span class="text-xs border px-2 py-0.5 rounded-md font-semibold ${badgeColor}">${item.status}</span>
+                </div>
+                <div class="text-slate-400 text-xs truncate">${item.waktu} ${item.alasan ? '• ' + item.alasan : ''}</div>
+            </div>
+        </div>
+        `;
+    });
+    container.innerHTML = html;
+}
 
 // --- Utility: Toast Notification ---
 function showToast(message, type = "success") {
