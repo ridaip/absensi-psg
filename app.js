@@ -394,10 +394,19 @@ function renderRekap(data) {
         let badgeColor = item.status === 'Hadir' ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' :
             item.status === 'Izin' ? 'bg-amber-500/20 text-amber-400 border-amber-500/30' :
                 'bg-rose-500/20 text-rose-400 border-rose-500/30';
+                
+        // Ubah URL Google Drive standar (Viewer) menjadi URL Thumbnail agar bisa tampil di tag <img>
+        let fotoUrl = item.foto;
+        if (fotoUrl && fotoUrl.includes('drive.google.com/file/d/')) {
+            const match = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+            if (match && match[1]) {
+                fotoUrl = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w120`;
+            }
+        }
 
         html += `
         <div class="bg-slate-900/60 border border-slate-700/50 rounded-xl p-3 flex gap-3 items-center">
-            ${item.foto ? `<img src="${item.foto}" class="w-12 h-12 rounded-lg object-cover bg-black" />` : '<div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center"><i class="ph ph-image text-slate-500"></i></div>'}
+            ${fotoUrl ? `<img src="${fotoUrl}" class="w-12 h-12 rounded-lg object-cover bg-black" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ3NTU2OSIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6Ii8+PC9zdmc+'" />` : '<div class="w-12 h-12 rounded-lg bg-slate-800 flex items-center justify-center"><i class="ph ph-image text-slate-500"></i></div>'}
             <div class="flex-1 min-w-0">
                 <div class="flex justify-between items-start mb-0.5">
                     <span class="text-white font-medium text-sm truncate">${item.tanggal}</span>
