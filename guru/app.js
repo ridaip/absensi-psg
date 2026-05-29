@@ -130,40 +130,84 @@ async function loadRekap(namaGuru) {
 }
 
 // Render Rekap dengan Search Filter
-function renderRekap(data) {
+function renderRekap(data, format = 'list') {
     if (!data || data.length === 0) {
         rekapContainer.innerHTML = `<div class="text-center text-slate-400 text-sm py-10 font-medium">Tidak ada data rekap ditemukan.</div>`;
         return;
     }
 
     let html = '';
-    data.forEach(item => {
-        let badgeColor = item.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-            item.status === 'Izin' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+
+    if (format === 'table') {
+        html += `
+        <div class="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-sm w-full">
+            <table class="w-full text-left border-collapse whitespace-nowrap">
+                <thead>
+                    <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
+                        <th class="p-3 font-semibold text-center w-10">No</th>
+                        <th class="p-3 font-semibold">Nama Siswa</th>
+                        <th class="p-3 font-semibold">Tanggal</th>
+                        <th class="p-3 font-semibold text-center">Status</th>
+                        <th class="p-3 font-semibold">Keterangan</th>
+                    </tr>
+                </thead>
+                <tbody class="text-sm divide-y divide-slate-100">
+        `;
+
+        data.forEach((item, index) => {
+            let badgeColor = item.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                item.status === 'Izin' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                item.status === 'Belum Absen' ? 'bg-slate-100 text-slate-500 border-slate-300' :
+                'bg-rose-50 text-rose-700 border-rose-200';
+
+            html += `
+                <tr class="hover:bg-slate-50 transition-colors">
+                    <td class="p-3 text-center text-slate-400 text-xs">${index + 1}</td>
+                    <td class="p-3 font-semibold text-slate-800">${item.nama}</td>
+                    <td class="p-3 text-slate-600">${item.tanggal} <span class="text-xs text-slate-400 block">${item.waktu !== '--:--' ? item.waktu : ''}</span></td>
+                    <td class="p-3 text-center">
+                        <span class="text-[10px] border px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${badgeColor}">${item.status}</span>
+                    </td>
+                    <td class="p-3 text-slate-500 text-xs truncate max-w-[150px]">${item.alasan || '-'}</td>
+                </tr>
+            `;
+        });
+
+        html += `
+                </tbody>
+            </table>
+        </div>
+        `;
+    } else {
+        data.forEach(item => {
+            let badgeColor = item.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                item.status === 'Izin' ? 'bg-amber-50 text-amber-700 border-amber-200' :
                 item.status === 'Belum Absen' ? 'bg-slate-100 text-slate-500 border-slate-300' :
                     'bg-rose-50 text-rose-700 border-rose-200';
 
-        let fotoUrl = item.foto;
-        if (fotoUrl && fotoUrl.includes('drive.google.com/file/d/')) {
-            const match = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
-            if (match && match[1]) {
-                fotoUrl = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w120`;
+            let fotoUrl = item.foto;
+            if (fotoUrl && fotoUrl.includes('drive.google.com/file/d/')) {
+                const match = fotoUrl.match(/\/d\/([a-zA-Z0-9_-]+)/);
+                if (match && match[1]) {
+                    fotoUrl = `https://drive.google.com/thumbnail?id=${match[1]}&sz=w120`;
+                }
             }
-        }
 
-        html += `
-        <div class="bg-white border border-slate-200 shadow-sm rounded-xl p-3 flex gap-3 items-center">
-            ${fotoUrl ? `<img src="${fotoUrl}" class="w-12 h-12 rounded-lg object-cover bg-slate-100 border border-slate-200" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ3NTU2OSIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6Ii8+PC9zdmc+'" />` : '<div class="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center"><i class="ph ph-image text-slate-400"></i></div>'}
-            <div class="flex-1 min-w-0">
-                <div class="flex justify-between items-start mb-0.5">
-                    <span class="text-slate-800 font-semibold text-sm truncate">${item.nama}</span>
-                    <span class="text-[10px] border px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${badgeColor}">${item.status}</span>
+            html += `
+            <div class="bg-white border border-slate-200 shadow-sm rounded-xl p-3 flex gap-3 items-center mb-3">
+                ${fotoUrl ? `<img src="${fotoUrl}" class="w-12 h-12 rounded-lg object-cover bg-slate-100 border border-slate-200" onerror="this.src='data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCI+PHBhdGggZmlsbD0iIzQ3NTU2OSIgZD0iTTEyIDJDMiAyIDIgMTIgMiAxMnMyIDEwIDEwIDEwIDEwLTEwIDEwLTEwUzIyIDIgMTIgMnptMCAxOGMtNC40MSAwLTgtMy41OS04LThzMy41OS04IDgtOCA4IDMuNTkgOCA4LTMuNTkgOC04IDh6Ii8+PC9zdmc+'" />` : '<div class="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 flex items-center justify-center shrink-0"><i class="ph ph-image text-slate-400"></i></div>'}
+                <div class="flex-1 min-w-0">
+                    <div class="flex justify-between items-start mb-0.5">
+                        <span class="text-slate-800 font-semibold text-sm truncate">${item.nama}</span>
+                        <span class="text-[10px] border px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${badgeColor}">${item.status}</span>
+                    </div>
+                    <div class="text-slate-500 text-xs font-medium truncate">${item.tanggal} • ${item.waktu} ${item.alasan ? '• ' + item.alasan : ''}</div>
                 </div>
-                <div class="text-slate-500 text-xs font-medium truncate">${item.tanggal} • ${item.waktu} ${item.alasan ? '• ' + item.alasan : ''}</div>
             </div>
-        </div>
-        `;
-    });
+            `;
+        });
+    }
+
     rekapContainer.innerHTML = html;
 }
 
@@ -243,7 +287,8 @@ function applyFilters() {
         return a.nama.localeCompare(b.nama);
     });
 
-    renderRekap(filtered);
+    const formatView = (waktu === 'today') ? 'list' : 'table';
+    renderRekap(filtered, formatView);
 }
 
 // Event Listeners for Filters
