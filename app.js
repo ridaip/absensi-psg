@@ -137,20 +137,12 @@ const dropdownMenu = document.getElementById('dropdownMenu');
 if (btnProfileMenu && dropdownMenu) {
     btnProfileMenu.addEventListener('click', (e) => {
         e.stopPropagation();
-        const isClosed = dropdownMenu.classList.contains('opacity-0');
-        if (isClosed) {
-            dropdownMenu.classList.remove('opacity-0', 'invisible', 'scale-95');
-            dropdownMenu.classList.add('opacity-100', 'visible', 'scale-100');
-        } else {
-            dropdownMenu.classList.add('opacity-0', 'invisible', 'scale-95');
-            dropdownMenu.classList.remove('opacity-100', 'visible', 'scale-100');
-        }
+        dropdownMenu.classList.toggle('hidden');
     });
 
     document.addEventListener('click', (e) => {
         if (!btnProfileMenu.contains(e.target) && !dropdownMenu.contains(e.target)) {
-            dropdownMenu.classList.add('opacity-0', 'invisible', 'scale-95');
-            dropdownMenu.classList.remove('opacity-100', 'visible', 'scale-100');
+            dropdownMenu.classList.add('hidden');
         }
     });
 }
@@ -181,6 +173,11 @@ btnNavAbsen.addEventListener('click', () => {
     sectionSuccess.style.display = 'none';
     sectionAbsen.style.display = 'flex';
     setTabActive(btnNavAbsen, btnNavRekap);
+    
+    // Restart camera if it was stopped
+    if (!stream || !stream.active) {
+        initCamera();
+    }
 });
 
 btnNavRekap.addEventListener('click', () => {
