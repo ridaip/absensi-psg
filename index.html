@@ -58,6 +58,16 @@
         @keyframes spin { to { transform: rotate(360deg); } }
         /* Hide scrollbar for clean app look */
         ::-webkit-scrollbar { display: none; }
+        
+        /* Print/PDF Export Styles */
+        @media print {
+            body { background: white !important; }
+            body * { visibility: hidden; }
+            #rekapSection, #rekapSection * { visibility: visible; color: black !important; border-color: #ccc !important; }
+            #rekapSection { position: absolute; left: 0; top: 0; width: 100%; box-shadow: none !important; border: none !important; }
+            .glass, .bg-slate-900\/60 { background: white !important; border: 1px solid #ddd !important; }
+            #btnExportPdf, #bulanRekap, nav { display: none !important; }
+        }
     </style>
 </head>
 <body class="text-slate-100 min-h-screen flex items-center justify-center relative overflow-hidden antialiased">
@@ -73,20 +83,30 @@
         <div class="flex-1 flex flex-col p-5 glass md:rounded-[2rem]">
             
             <!-- Header -->
-            <header class="glass rounded-2xl p-4 flex justify-between items-center mb-6 shadow-lg shrink-0">
-                <div class="flex items-center gap-2 text-primary font-bold text-xl">
-                    <i class="ph-fill ph-map-pin-line text-2xl"></i>
-                    <h1 class="text-white tracking-wide">Absen<span class="text-primary">PSG</span></h1>
-                </div>
-                <div id="userMenu" class="hidden flex-wrap items-center gap-2 justify-end">
-                    <div class="bg-white/10 px-3 py-1.5 rounded-full text-sm flex items-center gap-2 text-white mr-1">
-                        <i class="ph ph-user"></i> <span id="displayNisn" class="font-semibold"></span>
+            <header class="glass rounded-2xl p-4 flex flex-col gap-4 mb-5 shadow-lg shrink-0">
+                <div class="flex justify-between items-center">
+                    <!-- Logo -->
+                    <div class="flex items-center gap-2 text-primary font-bold text-xl">
+                        <img src="./icon.png" class="w-8 h-8 rounded-xl shadow-lg" alt="Logo">
+                        <h1 class="text-white tracking-wide">Absen<span class="text-primary">PSG</span></h1>
                     </div>
-                    <button id="btnNavAbsen" class="text-white font-semibold text-sm bg-primary px-3 py-1.5 rounded-full transition-all hidden">Absen</button>
-                    <button id="btnNavRekap" class="text-slate-400 font-medium text-sm hover:text-white px-3 py-1.5 rounded-full transition-all">Rekap</button>
-                    <button id="btnLogout" class="bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 px-3 py-1.5 rounded-full text-sm items-center gap-1 flex transition-all">
-                        <i class="ph ph-sign-out"></i> Keluar
-                    </button>
+                    
+                    <!-- User Profile & Logout (Hidden by default) -->
+                    <div id="userProfile" class="hidden items-center gap-2">
+                        <div class="bg-slate-800/80 px-3 py-1.5 rounded-full text-xs sm:text-sm flex items-center gap-2 text-white max-w-[120px] sm:max-w-none border border-slate-700/80">
+                            <i class="ph ph-user text-primary"></i> 
+                            <span id="displayNisn" class="font-semibold truncate"></span>
+                        </div>
+                        <button id="btnLogout" class="bg-rose-500/10 text-rose-400 hover:bg-rose-500/20 hover:text-rose-300 p-2 rounded-full transition-all border border-rose-500/20" title="Keluar">
+                            <i class="ph ph-sign-out text-lg"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Navigation Tabs (Hidden by default) -->
+                <div id="navTabs" class="hidden flex bg-slate-900/60 p-1 rounded-xl border border-slate-700/50 relative">
+                    <button id="btnNavAbsen" class="flex-1 text-white bg-primary font-semibold text-sm py-2 rounded-lg transition-all shadow-md shadow-primary/20">Kamera Absen</button>
+                    <button id="btnNavRekap" class="flex-1 text-slate-400 font-medium text-sm hover:text-white py-2 rounded-lg transition-all">Riwayat Rekap</button>
                 </div>
             </header>
 
@@ -181,9 +201,14 @@
                 <section id="rekapSection" class="glass rounded-3xl p-6 shadow-xl hidden flex-col gap-4 animate-slideUp flex-1 min-h-[300px]">
                     <div class="flex justify-between items-center">
                         <h2 class="text-xl font-bold text-white">Riwayat Absen</h2>
-                        <select id="bulanRekap" class="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg px-2 py-1.5 outline-none focus:border-primary">
-                            <option value="all">Semua Bulan</option>
-                        </select>
+                        <div class="flex gap-2">
+                            <select id="bulanRekap" class="bg-slate-900 border border-slate-700 text-white text-sm rounded-lg px-2 py-1.5 outline-none focus:border-primary">
+                                <option value="all">Semua Bulan</option>
+                            </select>
+                            <button id="btnExportPdf" class="bg-emerald-500 hover:bg-emerald-600 text-white p-1.5 px-2 rounded-lg transition-all shadow-md flex items-center justify-center gap-1 text-sm font-semibold" title="Cetak PDF">
+                                <i class="ph ph-printer text-lg"></i>
+                            </button>
+                        </div>
                     </div>
                     
                     <div id="rekapContainer" class="flex-1 overflow-y-auto pr-1 space-y-3 mt-1 flex flex-col">

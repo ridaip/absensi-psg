@@ -9,7 +9,8 @@ const sectionSuccess = document.getElementById('successSection');
 const inputNisn = document.getElementById('inputNisn');
 const inputTglLahir = document.getElementById('inputTglLahir');
 const btnLanjut = document.getElementById('btnLanjut');
-const userMenu = document.getElementById('userMenu');
+const userProfile = document.getElementById('userProfile');
+const navTabs = document.getElementById('navTabs');
 const displayNisn = document.getElementById('displayNisn');
 
 const video = document.getElementById('cameraFeed');
@@ -40,7 +41,8 @@ window.onload = () => {
     if (savedNisn) {
         userData.nisn = savedNisn;
         displayNisn.innerText = savedNama || savedNisn;
-        userMenu.style.display = 'flex';
+        userProfile.style.display = 'flex';
+        navTabs.style.display = 'flex';
 
         sectionLogin.style.display = 'none';
         sectionAbsen.style.display = 'flex';
@@ -103,8 +105,9 @@ btnLanjut.addEventListener('click', async () => {
         if (result.status === 'success') {
             userData.nisn = nisn;
             displayNisn.innerText = result.nama || nisn;
-            userMenu.style.display = 'flex';
-
+            userProfile.style.display = 'flex';
+            navTabs.style.display = 'flex';
+            
             // Save to cache
             localStorage.setItem('nisn_pkl', nisn);
             if (result.nama) localStorage.setItem('nama_pkl', result.nama);
@@ -138,20 +141,29 @@ const sectionRekap = document.getElementById('rekapSection');
 const btnNavAbsen = document.getElementById('btnNavAbsen');
 const btnNavRekap = document.getElementById('btnNavRekap');
 
+const ACTIVE_TAB = ['text-white', 'bg-primary', 'font-semibold', 'shadow-md', 'shadow-primary/20'];
+const INACTIVE_TAB = ['text-slate-400', 'font-medium', 'hover:text-white', 'bg-transparent', 'shadow-none'];
+
+function setTabActive(activeBtn, inactiveBtn) {
+    activeBtn.classList.remove(...INACTIVE_TAB);
+    activeBtn.classList.add(...ACTIVE_TAB);
+    
+    inactiveBtn.classList.remove(...ACTIVE_TAB);
+    inactiveBtn.classList.add(...INACTIVE_TAB);
+}
+
 btnNavAbsen.addEventListener('click', () => {
     sectionRekap.style.display = 'none';
     sectionSuccess.style.display = 'none';
     sectionAbsen.style.display = 'flex';
-    btnNavAbsen.classList.add('hidden');
-    btnNavRekap.classList.remove('hidden');
+    setTabActive(btnNavAbsen, btnNavRekap);
 });
 
 btnNavRekap.addEventListener('click', () => {
     sectionAbsen.style.display = 'none';
     sectionSuccess.style.display = 'none';
     sectionRekap.style.display = 'flex';
-    btnNavRekap.classList.add('hidden');
-    btnNavAbsen.classList.remove('hidden');
+    setTabActive(btnNavRekap, btnNavAbsen);
     loadRekap();
 });
 
@@ -419,6 +431,11 @@ function renderRekap(data) {
     });
     container.innerHTML = html;
 }
+
+// Ekspor PDF (Print)
+document.getElementById('btnExportPdf').addEventListener('click', () => {
+    window.print();
+});
 
 // --- Utility: Toast Notification ---
 function showToast(message, type = "success") {
