@@ -130,15 +130,32 @@ async function loadRekap(namaGuru) {
 }
 
 // Render Rekap dengan Search Filter
-function renderRekap(data, format = 'list') {
-    if (!data || data.length === 0) {
+// Render Rekap dengan Search Filter
+function renderRekap(data, format = 'list', waktu = 'today') {
+    if ((!data || data.length === 0) && format === 'list') {
         rekapContainer.innerHTML = `<div class="text-center text-slate-400 text-sm py-10 font-medium">Tidak ada data rekap ditemukan.</div>`;
         return;
     }
 
     let html = '';
 
-    if (format === 'table') {
+    if (format === 'summary') {
+        // --- FORMAT SUMMARY (TOTAL KESELURUHAN) ---
+        let stats = {};
+        // Inisialisasi semua siswa
+        daftarSiswaCache.forEach(s => {
+            stats[s.nisn] = { nama: s.nama, H: 0, I: 0, S: 0, A: 0 };
+        });
+        // Hitung
+        data.forEach(item => {
+            if (stats[item.nisn]) {
+                if (item.status === 'Hadir') stats[item.nisn].H++;
+                else if (item.status === 'Izin') stats[item.nisn].I++;
+                else if (item.status === 'Sakit') stats[item.nisn].S++;
+                else if (item.status === 'Belum Absen' || item.status === 'Alpha') stats[item.nisn].A++;
+            }
+        });
+
         html += `
         <div class="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-sm w-full">
             <table class="w-full text-left border-collapse whitespace-nowrap">
@@ -146,39 +163,101 @@ function renderRekap(data, format = 'list') {
                     <tr class="bg-slate-50 text-slate-500 text-xs uppercase tracking-wider border-b border-slate-200">
                         <th class="p-3 font-semibold text-center w-10">No</th>
                         <th class="p-3 font-semibold">Nama Siswa</th>
-                        <th class="p-3 font-semibold">Tanggal</th>
-                        <th class="p-3 font-semibold text-center">Status</th>
-                        <th class="p-3 font-semibold">Keterangan</th>
+                        <th class="p-3 font-semibold text-center text-emerald-600">Hadir</th>
+                        <th class="p-3 font-semibold text-center text-amber-600">Izin</th>
+                        <th class="p-3 font-semibold text-center text-rose-600">Sakit</th>
+                        <th class="p-3 font-semibold text-center text-slate-500">Alpha</th>
                     </tr>
                 </thead>
                 <tbody class="text-sm divide-y divide-slate-100">
         `;
 
-        data.forEach((item, index) => {
-            let badgeColor = item.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                item.status === 'Izin' ? 'bg-amber-50 text-amber-700 border-amber-200' :
-                item.status === 'Belum Absen' ? 'bg-slate-100 text-slate-500 border-slate-300' :
-                'bg-rose-50 text-rose-700 border-rose-200';
-
+        Object.values(stats).forEach((row, index) => {
             html += `
                 <tr class="hover:bg-slate-50 transition-colors">
                     <td class="p-3 text-center text-slate-400 text-xs">${index + 1}</td>
-                    <td class="p-3 font-semibold text-slate-800">${item.nama}</td>
-                    <td class="p-3 text-slate-600">${item.tanggal} <span class="text-xs text-slate-400 block">${item.waktu !== '--:--' ? item.waktu : ''}</span></td>
-                    <td class="p-3 text-center">
-                        <span class="text-[10px] border px-2 py-0.5 rounded-md font-bold uppercase tracking-wider ${badgeColor}">${item.status}</span>
-                    </td>
-                    <td class="p-3 text-slate-500 text-xs truncate max-w-[150px]">${item.alasan || '-'}</td>
+                    <td class="p-3 font-semibold text-slate-800">${row.nama}</td>
+                    <td class="p-3 text-center font-bold text-emerald-600 bg-emerald-50/50">${row.H}</td>
+                    <td class="p-3 text-center font-bold text-amber-600 bg-amber-50/50">${row.I}</td>
+                    <td class="p-3 text-center font-bold text-rose-600 bg-rose-50/50">${row.S}</td>
+                    <td class="p-3 text-center font-bold text-slate-500">${row.A}</td>
                 </tr>
             `;
         });
+        html += `</tbody></table></div>`;
 
+    } else if (format === 'matrix') {
+        // --- FORMAT MATRIX (MINGGUAN / BULANAN) ---
+        let dates = [];
+        const now = new Date();
+        
+        if (waktu === 'week') {
+            // Dapatkan Senin minggu ini
+            let day = now.getDay();
+            let diff = now.getDate() - day + (day === 0 ? -6 : 1); 
+            const monday = new Date(now.setDate(diff));
+            for(let i=0; i<6; i++) { // Senin - Sabtu
+                let d = new Date(monday);
+                d.setDate(d.getDate() + i);
+                dates.push(`${d.getDate().toString().padStart(2,'0')}/${(d.getMonth()+1).toString().padStart(2,'0')}/${d.getFullYear()}`);
+            }
+        } else if (waktu === 'month') {
+            const year = now.getFullYear();
+            const month = now.getMonth();
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            for(let i=1; i<=daysInMonth; i++) {
+                dates.push(`${i.toString().padStart(2,'0')}/${(month+1).toString().padStart(2,'0')}/${year}`);
+            }
+        }
+
+        let matrix = {};
+        daftarSiswaCache.forEach(s => {
+            matrix[s.nisn] = { nama: s.nama, records: {} };
+            dates.forEach(d => matrix[s.nisn].records[d] = '-');
+        });
+
+        data.forEach(item => {
+            if (matrix[item.nisn] && matrix[item.nisn].records[item.tanggal] !== undefined) {
+                let stat = item.status === 'Hadir' ? 'H' : 
+                           item.status === 'Izin' ? 'I' : 
+                           item.status === 'Sakit' ? 'S' : '-';
+                matrix[item.nisn].records[item.tanggal] = stat;
+            }
+        });
+
+        // Header Table
         html += `
-                </tbody>
-            </table>
-        </div>
-        `;
+        <div class="overflow-x-auto bg-white rounded-xl border border-slate-200 shadow-sm w-full relative">
+            <table class="w-full text-left border-collapse whitespace-nowrap">
+                <thead>
+                    <tr class="bg-slate-50 text-slate-500 text-[10px] uppercase tracking-wider border-b border-slate-200">
+                        <th class="p-2 font-semibold text-center sticky left-0 bg-slate-50 z-10 border-r border-slate-200 min-w-[30px]">No</th>
+                        <th class="p-2 font-semibold sticky left-[30px] bg-slate-50 z-10 border-r border-slate-200 min-w-[120px]">Siswa</th>`;
+        
+        dates.forEach((d, i) => {
+            let dayLabel = waktu === 'week' ? `Hari ${i+1}` : d.split('/')[0];
+            html += `<th class="p-1 font-semibold text-center min-w-[30px]" title="${d}">${dayLabel}</th>`;
+        });
+        html += `</tr></thead><tbody class="text-xs divide-y divide-slate-100">`;
+
+        Object.values(matrix).forEach((row, index) => {
+            html += `<tr class="hover:bg-slate-50 transition-colors">
+                <td class="p-2 text-center text-slate-400 sticky left-0 bg-white z-10 border-r border-slate-100">${index + 1}</td>
+                <td class="p-2 font-semibold text-slate-800 sticky left-[30px] bg-white z-10 border-r border-slate-100 truncate max-w-[120px]" title="${row.nama}">${row.nama}</td>`;
+            
+            dates.forEach(d => {
+                let stat = row.records[d];
+                let colorClass = stat === 'H' ? 'text-emerald-600 bg-emerald-50' : 
+                                 stat === 'I' ? 'text-amber-600 bg-amber-50' : 
+                                 stat === 'S' ? 'text-rose-600 bg-rose-50' : 'text-slate-300';
+                html += `<td class="p-1 text-center font-bold border-l border-slate-100 ${colorClass}" title="${d}: ${stat}">${stat}</td>`;
+            });
+            html += `</tr>`;
+        });
+        html += `</tbody></table></div>`;
+
     } else {
+        // --- FORMAT LIST (HARI INI) ---
         data.forEach(item => {
             let badgeColor = item.status === 'Hadir' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                 item.status === 'Izin' ? 'bg-amber-50 text-amber-700 border-amber-200' :
@@ -257,8 +336,9 @@ function applyFilters() {
         return true;
     });
 
-    // Tampilkan Siswa "Belum Absen" jika mereka tidak memiliki data sama sekali di rentang waktu yang dipilih
-    if (daftarSiswaCache.length > 0) {
+    // Fitur Khusus: Tampilkan Siswa "Belum Absen" KHUSUS JIKA filter Hari Ini dipilih
+    // (Untuk Summary dan Matrix, kita gunakan daftarSiswaCache saat render)
+    if (waktu === 'today' && daftarSiswaCache.length > 0) {
         const sudahAbsenNisn = filtered.map(item => item.nisn);
         const belumAbsen = daftarSiswaCache.filter(s => !sudahAbsenNisn.includes(s.nisn));
         
@@ -266,7 +346,7 @@ function applyFilters() {
             filtered.push({
                 nisn: s.nisn,
                 nama: s.nama,
-                tanggal: waktu === 'today' ? todayStr : '--/--/----',
+                tanggal: todayStr,
                 waktu: '--:--',
                 status: 'Belum Absen',
                 foto: null,
@@ -280,15 +360,18 @@ function applyFilters() {
         return item.nama.toLowerCase().includes(keyword) || item.nisn.toLowerCase().includes(keyword);
     });
 
-    // Urutkan: Yang belum absen di atas (opsional, saat ini berdasarkan abjad atau biarkan)
+    // Urutkan: Yang belum absen di atas
     filtered.sort((a, b) => {
         if (a.status === 'Belum Absen' && b.status !== 'Belum Absen') return -1;
         if (a.status !== 'Belum Absen' && b.status === 'Belum Absen') return 1;
         return a.nama.localeCompare(b.nama);
     });
 
-    const formatView = (waktu === 'today') ? 'list' : 'table';
-    renderRekap(filtered, formatView);
+    let formatView = 'list';
+    if (waktu === 'all') formatView = 'summary';
+    else if (waktu === 'week' || waktu === 'month') formatView = 'matrix';
+    
+    renderRekap(filtered, formatView, waktu);
 }
 
 // Event Listeners for Filters
